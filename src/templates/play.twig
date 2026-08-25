@@ -29,7 +29,11 @@
         </div>
     {% else %}
         <div id="doom-frame" class="doom-frame">
-            <canvas class="doom-canvas" tabindex="-1" aria-label="{{ 'Doom'|t('doom') }}"></canvas>
+            {# id="canvas" is not decoration: Emscripten's canvas sizing resolves
+               its target by that selector, and without it the backing store is
+               never set and stays at the HTML default of 300x150, so the game
+               renders a full frame into a fraction of a buffer. #}
+            <canvas id="canvas" class="doom-canvas" tabindex="-1" aria-label="{{ 'Doom'|t('doom') }}"></canvas>
 
             <div class="doom-overlay">
                 <button type="button" class="btn submit doom-start">{{ 'Start'|t('doom') }}</button>
@@ -42,6 +46,7 @@
             Craft.Doom.boot('#doom-frame', {
                 engineUrl: {{ engineJsUrl|json_encode|raw }},
                 wasmUrl: {{ engineWasmUrl|json_encode|raw }},
+                dataUrl: {{ engineDataUrl|json_encode|raw }},
                 wadUrl: {{ actionUrl('doom/play/wad')|json_encode|raw }},
                 pointerLock: {{ pointerLock ? 'true' : 'false' }}
             });

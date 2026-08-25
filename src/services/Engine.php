@@ -16,17 +16,23 @@ use yii\base\Component;
 class Engine extends Component
 {
     /**
-     * The Emscripten glue script. Named by the upstream build's PROGRAM_PREFIX,
-     * so it changes only if the upstream configure.ac does.
+     * The Emscripten glue script.
      */
-    public const JS_FILE = 'websockets-doom.js';
+    public const JS_FILE = 'index.js';
 
     /**
      * The WebAssembly module. Fetched to an ArrayBuffer by the host script
      * rather than streamed, because `cpresources` is served by the site's own
      * web server and application/wasm is not reliably in its MIME map.
      */
-    public const WASM_FILE = 'websockets-doom.wasm';
+    public const WASM_FILE = 'index.wasm';
+
+    /**
+     * Emscripten's preloaded filesystem. Carries the engine's own resource WAD
+     * (prboomx.wad), which is mandatory, and no game content: the admin's IWAD
+     * is written in at runtime instead, so one build serves every WAD.
+     */
+    public const DATA_FILE = 'index.data';
 
     /**
      * Provenance written by bin/build-engine.sh. Not required for the engine to
@@ -49,7 +55,8 @@ class Engine extends Component
     public function isInstalled(): bool
     {
         return is_file($this->getPath() . '/' . self::JS_FILE)
-            && is_file($this->getPath() . '/' . self::WASM_FILE);
+            && is_file($this->getPath() . '/' . self::WASM_FILE)
+            && is_file($this->getPath() . '/' . self::DATA_FILE);
     }
 
     /**

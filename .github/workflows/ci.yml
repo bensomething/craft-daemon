@@ -51,20 +51,20 @@ jobs:
         run: |
           dir=src/web/assets/doom/dist/engine
 
-          if [ ! -f "$dir/websockets-doom.wasm" ]; then
+          if [ ! -f "$dir/index.wasm" ]; then
             echo "No engine committed yet. Skipping."
             exit 0
           fi
 
-          for f in websockets-doom.js BUILD.json; do
+          for f in index.js index.data BUILD.json; do
             if [ ! -f "$dir/$f" ]; then
-              echo "::error::$dir/$f is missing, but the .wasm is present."
+              echo "::error::$dir/$f is missing, but index.wasm is present."
               exit 1
             fi
           done
 
-          committed=$(python3 -c "import json;print(json.load(open('$dir/BUILD.json'))['commit'])")
-          pinned=$(grep -oP 'REPO_COMMIT="\K[0-9a-f]+' bin/build-engine.sh)
+          committed=$(python3 -c "import json;print(json.load(open('$dir/BUILD.json'))['tag'])")
+          pinned=$(grep -oP 'REPO_TAG="\K[^"]+' bin/build-engine.sh)
 
           if [ "$committed" != "$pinned" ]; then
             echo "::error::BUILD.json records $committed but bin/build-engine.sh pins $pinned."

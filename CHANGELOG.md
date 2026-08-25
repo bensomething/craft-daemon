@@ -3,12 +3,12 @@
 ## Unreleased
 
 ### Added
-- Initial scaffold: control panel section, `doom:play` permission, settings screen, WAD service, console commands, and the WebAssembly host layer.
-- A "Download Freedoom" button on the settings screen, with a progress bar, so the WAD can be installed without dropping to a terminal.
-
-### Removed
-- The "Nav label" setting. The nav item uses the plugin name and a `face-smile-horns` system icon.
+- Initial release: a control panel section running a WebAssembly build of PrBoom+ on a canvas, behind its own `doom:play` permission.
+- Settings screen with a "Download Freedoom" button and a progress bar, so a WAD can be installed without dropping to a terminal.
+- `doom/wad/fetch`, `doom/wad/list` and `doom/wad/status` console commands.
+- `bin/build-engine.sh`, which builds the engine reproducibly from a pinned upstream tag and verifies the engine resource WAD against the SHA-256 upstream publishes.
 
 ### Notes
-- The engine build pins `-std=gnu17`. Chocolate Doom's `doomtype.h` declares its own `false`/`true` enum, which stops compiling under the C23 default of current Emscripten toolchains.
-- The engine build strips DWARF debug info, taking the `.wasm` from 7.3MB to 2.1MB. Upstream builds with `-gsource-map`, and `configure.ac` hardcodes `-g` on top of it. `DOOM_DEBUG=1` restores both.
+- WADs are never served as static files. They live under `@storage` and reach the browser through a permission-checked controller action.
+- The `.wasm` is fetched to an ArrayBuffer rather than streamed, because `cpresources` is served by the site's own web server and `application/wasm` is not reliably in its MIME map.
+- The engine is [Dwasm](https://github.com/GMH-Code/Dwasm) (PrBoom+ / PrBoomX). An earlier implementation used cloudflare/doom-wasm (Chocolate Doom) and was abandoned: it needed eleven build patches to compile and run on a current toolchain, and still crashed whenever a level loaded. Dwasm needs one patch, and that one only because this plugin loads WADs at runtime rather than baking them in.

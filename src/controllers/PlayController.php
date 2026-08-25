@@ -53,16 +53,19 @@ class PlayController extends Controller
         $assetManager = Craft::$app->getAssetManager();
         $engineJsUrl = null;
         $engineWasmUrl = null;
+        $engineDataUrl = null;
 
         if ($engine->isInstalled()) {
             $engineJsUrl = $assetManager->getPublishedUrl(DoomAsset::sourcePath(), true, 'engine/' . Engine::JS_FILE);
             $engineWasmUrl = $assetManager->getPublishedUrl(DoomAsset::sourcePath(), true, 'engine/' . Engine::WASM_FILE);
+            $engineDataUrl = $assetManager->getPublishedUrl(DoomAsset::sourcePath(), true, 'engine/' . Engine::DATA_FILE);
         }
 
         return $this->renderTemplate('doom/play.twig', [
             'engineInstalled' => $engine->isInstalled(),
             'engineJsUrl' => $engineJsUrl ?: null,
             'engineWasmUrl' => $engineWasmUrl ?: null,
+            'engineDataUrl' => $engineDataUrl ?: null,
             'buildInfo' => $engine->getBuildInfo(),
             'wadPath' => $wads->getWadPath(),
             'pointerLock' => $plugin->getSettings()->pointerLock,

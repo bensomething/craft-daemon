@@ -2,7 +2,7 @@
    coordinates are offset by however much you added. */
 .doom-frame {
     position: relative;
-    max-width: 800px;
+    max-width: 720px;
     margin: 0 auto;
     background: #000;
     border-radius: var(--large-border-radius, 5px);
@@ -11,8 +11,13 @@
 
 .doom-canvas {
     display: block;
+    /* The engine sets the backing store from its own screen_resolution
+       setting, so the display size follows that ratio rather than a hardcoded
+       one. height: auto is only safe because the backing store is genuinely
+       set here; when it is left at the HTML default of 300x150 this decouples
+       the two and the game draws into a corner of its own canvas. */
     width: 100%;
-    aspect-ratio: 4 / 3;
+    height: auto;
     background: #000;
     border: 0;
     padding: 0;

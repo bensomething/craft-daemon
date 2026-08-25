@@ -9,7 +9,7 @@
 {% set found = wads.getStoredWads() %}
 {% set storageDir = wads.getStorageDir() %}
 
-<h2>{{ 'WADs'|t('doom') }}</h2>
+<h2 class="doom-heading">{{ 'WADs'|t('doom') }}</h2>
 
 {% if found %}
     <p class="light">{{ 'Found in {dir}. The first one is used unless you set a path below.'|t('doom', {dir: storageDir}) }}</p>
@@ -67,6 +67,9 @@
 }) }}
 
 {% css %}
+    /* Only when it leads the pane. If the engine warning is showing, the
+       heading is no longer first and wants its normal spacing back. */
+    .doom-heading:first-child { margin-top: 0; }
     .doom-wad-list { margin-top: 8px; }
     .doom-fetch { margin-top: 20px; }
     .doom-fetch .buttons { margin-top: 0; }

@@ -1,18 +1,24 @@
 /*
  * Host layer for the Doom CP section.
  *
- * The compiled engine is upstream's; everything here is the shim between it
- * and a Craft control panel that has its own opinions about keyboard input,
- * its own web server serving cpresources, and its own ideas about focus.
+ * The engine is Dwasm (PrBoom+ / PrBoomX compiled to WebAssembly). Everything
+ * here is the shim between it and a Craft control panel that has its own
+ * opinions about keyboard input, its own web server serving cpresources, and
+ * its own ideas about focus.
+ *
+ * Dwasm normally ships an IWAD baked into index.data at build time. This plugin
+ * does not ship a WAD, so the engine is built with only its own resource WAD
+ * preloaded and the admin's IWAD is written into the filesystem here, before
+ * the engine starts.
  */
 (function ($) {
     'use strict';
 
     /*
      * Keys the browser acts on itself and the game also wants. preventDefault
-     * on these while playing; never stopPropagation, because SDL2 listens on
-     * window in the bubble phase and stopping propagation anywhere below that
-     * takes the input away from the game as well as from Craft.
+     * on these while playing; never stopPropagation, because SDL listens on
+     * window and stopping propagation takes the input away from the game as
+     * well as from Craft.
      */
     var SWALLOWED_KEYS = [
         'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
@@ -21,16 +27,7 @@
         'Slash', 'Quote',
     ];
 
-    /*
-     * Where the game's writable state lives. Mounted from IndexedDB, so
-     * savegames and the config survive a page load without a server round trip.
-     */
-    var PERSIST_DIR = '/persist';
-
-    /*
-     * Written into the Emscripten filesystem before the game starts. The bytes
-     * come from a permission-gated Craft action, not from a static URL.
-     */
+    /* Where the admin's IWAD is written before the engine starts. */
     var WAD_PATH = '/doom.wad';
 
     var DoomHost = Garnish.Base.extend({
@@ -42,6 +39,7 @@
         module: null,
         running: false,
         layerAdded: false,
+        keyHandler: null,
 
         init: function (container, settings) {
             this.setSettings(settings, DoomHost.defaults);
@@ -51,9 +49,6 @@
             this.$overlay = this.$container.find('.doom-overlay');
             this.$status = this.$container.find('.doom-status');
 
-            // A canvas with a border or padding reports the wrong mouse
-            // coordinates to SDL. The stylesheet keeps it bare; this is the
-            // reminder for anyone tempted to restyle it.
             this.addListener(this.$overlay.find('.doom-start'), 'click', 'start');
 
             this.addListener(this.$canvas, 'contextmenu', function (ev) {
@@ -113,6 +108,7 @@
 
         boot: function (assets) {
             var self = this;
+            var settings = this.settings;
             var canvas = this.$canvas[0];
 
             canvas.addEventListener('webglcontextlost', function (ev) {
@@ -122,8 +118,25 @@
 
             var module = {
                 canvas: canvas,
-                noInitialRun: true,
-                arguments: [],
+
+                // The engine runs main() itself once its dependencies resolve,
+                // taking its command line from here.
+                arguments: ['-iwad', WAD_PATH],
+
+                // index.wasm and index.data sit next to index.js in cpresources,
+                // but the published URLs carry ?v= cache busters, so they have
+                // to be handed over rather than derived from a base path.
+                locateFile: function (path) {
+                    if (path === 'index.wasm') {
+                        return settings.wasmUrl;
+                    }
+
+                    if (path === 'index.data') {
+                        return settings.dataUrl;
+                    }
+
+                    return path;
+                },
 
                 // Resolves the .wasm ourselves, from an ArrayBuffer, for the
                 // MIME-type reason above. Returning {} tells Emscripten the
@@ -141,16 +154,43 @@
                 },
 
                 preRun: [function () {
-                    self.mountPersistence(module);
                     module.FS.writeFile(WAD_PATH, assets.wad);
                 }],
 
                 onRuntimeInitialized: function () {
-                    self.onReady(module);
+                    self.onReady();
                 },
 
                 onAbort: function (reason) {
                     self.fail(new Error(String(reason)));
+                },
+
+                /**
+                 * The engine asks for pointer lock through this rather than
+                 * calling requestPointerLock itself, which is what makes it
+                 * safe: the browser only grants a lock from a user gesture, so
+                 * a request raised from the game loop is refused. If the
+                 * immediate attempt fails, wait for a keypress and try again.
+                 */
+                captureMouse: function () {
+                    if (!settings.pointerLock) {
+                        return;
+                    }
+
+                    if (module._canLockPointer !== false && !self.attemptPointerLock()) {
+                        module._canLockPointer = false;
+                        document.addEventListener('keydown', self.lockPointerOnKey);
+                    }
+                },
+
+                winResized: function () {
+                    // Canvas sizing is left to the engine; the stylesheet only
+                    // constrains how large it is displayed.
+                },
+
+                softExit: function (status) {
+                    self.releaseInput();
+                    console.log('[doom] engine exited with status', status);
                 },
 
                 print: function (text) {
@@ -162,8 +202,8 @@
                 },
 
                 setStatus: function () {
-                    // Upstream's index.html routes progress here; the overlay
-                    // covers it, so this only exists to keep the glue quiet.
+                    // The overlay covers startup progress; this only exists to
+                    // stop the engine's own status handling from throwing.
                 },
 
                 monitorRunDependencies: function () {
@@ -172,38 +212,31 @@
 
             this.module = window.Module = module;
 
+            this.lockPointerOnKey = function (event) {
+                if (event.key === 'Escape' || self.attemptPointerLock()) {
+                    document.removeEventListener('keydown', self.lockPointerOnKey);
+                    module._canLockPointer = true;
+                }
+            };
+
             return this.loadScript(this.settings.engineUrl);
         },
 
-        /**
-         * Mounts IndexedDB at PERSIST_DIR so savegames and default.cfg survive.
-         *
-         * IDBFS is only present if the engine was linked with -lidbfs.js.
-         * bin/build-engine.sh adds that flag; a hand-dropped upstream build
-         * won't have it, so this degrades to a warning rather than an abort.
-         */
-        mountPersistence: function (module) {
-            var FS = module.FS;
+        attemptPointerLock: function () {
+            var canvas = this.$canvas[0];
 
-            if (!FS.filesystems || !FS.filesystems.IDBFS) {
-                console.warn('[doom] Engine built without IDBFS. Saves will not persist across page loads.');
-                FS.mkdir(PERSIST_DIR);
-                return;
+            if (document.pointerLockElement === null && canvas.requestPointerLock) {
+                var result = canvas.requestPointerLock();
+
+                // Chrome returns a promise here and rejects if the document
+                // isn't focused; nothing to do about it but not throw.
+                if (result && typeof result.catch === 'function') {
+                    result.catch(function () {
+                    });
+                }
             }
 
-            module.addRunDependency('doom-persist');
-
-            FS.mkdir(PERSIST_DIR);
-            FS.mount(FS.filesystems.IDBFS, {}, PERSIST_DIR);
-
-            // true = populate the in-memory filesystem from IndexedDB.
-            FS.syncfs(true, function (error) {
-                if (error) {
-                    console.warn('[doom] Could not restore saved games:', error);
-                }
-
-                module.removeRunDependency('doom-persist');
-            });
+            return document.pointerLockElement !== null;
         },
 
         /**
@@ -222,35 +255,10 @@
             });
         },
 
-        onReady: function (module) {
+        onReady: function () {
             this.$overlay.addClass('doom-overlay--hidden');
             this.captureInput();
-
-            var callMain = module.callMain || window.callMain;
-
-            if (typeof callMain !== 'function') {
-                this.fail(new Error('The engine exposes no callMain(). Rebuild with callMain in EXPORTED_RUNTIME_METHODS.'));
-                return;
-            }
-
-            callMain(this.gameArgs());
-
             this.$canvas.trigger('focus');
-        },
-
-        /**
-         * -nogui and -nomusic match upstream's own launcher: the setup GUI has
-         * nowhere to run, and music needs a soundfont we don't ship.
-         */
-        gameArgs: function () {
-            return [
-                '-iwad', WAD_PATH,
-                '-savedir', PERSIST_DIR + '/savegames',
-                '-config', PERSIST_DIR + '/default.cfg',
-                '-window',
-                '-nogui',
-                '-nomusic',
-            ];
         },
 
         /**
@@ -259,9 +267,9 @@
          * Garnish scopes shortcuts to the topmost UI layer, the same mechanism
          * modals use, so pushing a layer suppresses the CP's own bindings
          * without touching a single listener. The capture-phase handler that
-         * follows only calls preventDefault, never stopPropagation: SDL2
-         * listens on window in the bubble phase, so anything that halts
-         * propagation disarms the game along with Craft.
+         * follows only calls preventDefault, never stopPropagation: SDL listens
+         * on window, so anything that halts propagation disarms the game along
+         * with Craft.
          */
         captureInput: function () {
             if (Garnish.uiLayerManager && typeof Garnish.uiLayerManager.addLayer === 'function') {
@@ -271,16 +279,16 @@
 
             this.keyHandler = this.onKey.bind(this);
             window.addEventListener('keydown', this.keyHandler, true);
-
-            if (this.settings.pointerLock) {
-                this.addListener(this.$canvas, 'click', 'requestPointerLock');
-            }
         },
 
         releaseInput: function () {
             if (this.keyHandler) {
                 window.removeEventListener('keydown', this.keyHandler, true);
                 this.keyHandler = null;
+            }
+
+            if (this.lockPointerOnKey) {
+                document.removeEventListener('keydown', this.lockPointerOnKey);
             }
 
             if (this.layerAdded) {
@@ -298,21 +306,6 @@
 
             if (SWALLOWED_KEYS.indexOf(ev.code) !== -1) {
                 ev.preventDefault();
-            }
-        },
-
-        requestPointerLock: function () {
-            var canvas = this.$canvas[0];
-
-            if (canvas.requestPointerLock) {
-                // Chrome returns a promise here and rejects if the document
-                // isn't focused; nothing to do about it but not throw.
-                var result = canvas.requestPointerLock();
-
-                if (result && typeof result.catch === 'function') {
-                    result.catch(function () {
-                    });
-                }
             }
         },
 
@@ -338,6 +331,7 @@
         defaults: {
             engineUrl: null,
             wasmUrl: null,
+            dataUrl: null,
             wadUrl: null,
             pointerLock: true,
         },

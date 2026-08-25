@@ -2,22 +2,27 @@
 #
 # Builds the Doom engine artefacts and drops them into the plugin.
 #
-# Nobody publishes a prebuilt Doom WebAssembly release: cloudflare/doom-wasm has
-# no tags and no releases, and there is no npm package. So the artefacts are
-# built once, here, and committed. This script is what makes that reproducible.
+# The engine is GMH-Code/Dwasm, a WebAssembly port of PrBoom+ / PrBoomX. Nobody
+# publishes prebuilt Doom WebAssembly artefacts, so they are built once, here,
+# and committed. This script is what makes that reproducible.
 #
 # Usage:  bin/build-engine.sh
 #
 set -euo pipefail
 
-REPO_URL="https://github.com/cloudflare/doom-wasm.git"
+REPO_URL="https://github.com/GMH-Code/Dwasm.git"
 
 # Pinned so a rebuild produces the same engine. Bump deliberately, and note the
 # bump in CHANGELOG.md when the artefacts change.
-REPO_COMMIT="65e0d3ae2ffa604155eebd96ed40da6567bd08f4"
+REPO_TAG="v2.2.0"
+
+# The engine's own resource WAD, generated in the native stage below. Upstream
+# publishes this hash, so a mismatch means the generator produced something
+# other than what the project ships.
+PRBOOM_WAD_SHA256="506fe7159eaf0a6cb479f866131ec7653638bb08928029cb8dabe1b3b1c9474d"
 
 PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD_DIR="${PLUGIN_DIR}/build/doom-wasm"
+BUILD_DIR="${PLUGIN_DIR}/build/dwasm"
 OUT_DIR="${PLUGIN_DIR}/src/web/assets/doom/dist/engine"
 
 require() {
@@ -28,16 +33,11 @@ require() {
     }
 }
 
-# Upstream's README also says to brew install sdl2, sdl2_mixer and sdl2_net.
-# It doesn't need them: the PKG_CHECK_MODULES lines for SDL are commented out in
-# configure.ac, and -s USE_SDL=2 pulls SDL from Emscripten's own ports. pkg-config
-# is still needed, because autoreconf expands PKG_CHECK_MODULES for libpng and
-# libsamplerate and fails without its m4 macros.
-require emcc       "Install Emscripten: brew install emscripten"
-require autoreconf "Install autoconf: brew install autoconf"
-require automake   "Install automake: brew install automake"
-require pkg-config "Install pkg-config: brew install pkg-config"
-require git        "Install git."
+require emcc    "Install Emscripten: brew install emscripten"
+require emcmake "Install Emscripten: brew install emscripten"
+require cmake   "Install CMake: brew install cmake"
+require make    "Install make."
+require git     "Install git."
 
 # ---------------------------------------------------------------------------
 # Source
@@ -49,133 +49,142 @@ if [ ! -d "${BUILD_DIR}/.git" ]; then
     git clone --quiet "${REPO_URL}" "${BUILD_DIR}"
 fi
 
-echo "==> Checking out ${REPO_COMMIT}"
-git -C "${BUILD_DIR}" fetch --quiet origin
-git -C "${BUILD_DIR}" checkout --quiet --force "${REPO_COMMIT}"
+echo "==> Checking out ${REPO_TAG}"
+git -C "${BUILD_DIR}" fetch --quiet --tags origin
+git -C "${BUILD_DIR}" checkout --quiet --force "${REPO_TAG}"
 git -C "${BUILD_DIR}" clean -qfdx
 
+REPO_COMMIT="$(git -C "${BUILD_DIR}" rev-parse HEAD)"
+
 # ---------------------------------------------------------------------------
-# Link flags
+# Patch
 #
-# Three deliberate departures from upstream's configure.ac. Each is patched by
-# exact string match so the build fails loudly rather than silently producing an
-# engine with different behaviour if upstream edits that line.
+# Exactly one, matched literally so the build fails loudly rather than silently
+# producing an engine the host script cannot drive.
 # ---------------------------------------------------------------------------
 
-CONFIGURE_AC="${BUILD_DIR}/configure.ac"
+patch_source() {
+    local file="${BUILD_DIR}/$1" find="$2" replace="$3" label="$4"
 
-patch_flag() {
-    local find="$1" replace="$2" label="$3"
-
-    if ! grep -qF -- "${find}" "${CONFIGURE_AC}"; then
+    if ! grep -qF -- "${find}" "${file}"; then
         echo "error: could not apply patch '${label}'." >&2
         echo "       Expected to find: ${find}" >&2
-        echo "       Upstream configure.ac has changed. Re-check the flags before shipping." >&2
+        echo "       in ${file}. Upstream has changed; re-check before shipping." >&2
         exit 1
     fi
 
-    # Literal substring replacement, not a regex: these flags are full of /,
-    # [, ] and quotes, and every one of them is a metacharacter somewhere.
     DOOM_FIND="${find}" DOOM_REPLACE="${replace}" perl -pi -e '
         my $f = $ENV{DOOM_FIND};
         my $i = index($_, $f);
         substr($_, $i, length($f)) = $ENV{DOOM_REPLACE} if $i >= 0;
-    ' "${CONFIGURE_AC}"
+    ' "${file}"
     echo "    patched: ${label}"
 }
 
-echo "==> Patching link flags"
+echo "==> Patching"
 
-# 1. IDBFS, so savegames and default.cfg persist in IndexedDB. Upstream doesn't
-#    link it; without it the host script warns and saves die with the tab.
-patch_flag "-lwebsocket.js" "-lwebsocket.js -lidbfs.js" "link IDBFS"
+# Export FS so the host can write a WAD into the filesystem at runtime.
+#
+# Dwasm expects an IWAD baked into index.data at build time (drop it in
+# wasm/fs). This plugin does not ship a WAD and does not want a per-WAD rebuild,
+# so it writes whichever WAD the admin configured into the Emscripten FS before
+# the engine starts and passes -iwad. That needs FS on the Module object.
+# callMain comes along for the ride so startup can be deferred if it ever needs
+# to be; the engine currently auto-runs from Module.arguments.
+patch_source "CMakeLists.txt" \
+    "            -sEMULATE_FUNCTION_POINTER_CASTS=1 \\" \
+    "            -sEXPORTED_RUNTIME_METHODS=['FS','callMain','addRunDependency','removeRunDependency'] \\\\\n            -sEMULATE_FUNCTION_POINTER_CASTS=1 \\\\" \
+    "export FS for runtime WAD loading"
 
-# 2. callMain and FS on the Module object. Upstream's index.html reaches for the
-#    bare global, which only exists in a non-modularized build; exporting them
-#    properly means the host script doesn't depend on that.
-patch_flag \
-    "-s EXTRA_EXPORTED_RUNTIME_METHODS=[['FS','ccall']]" \
-    "-s EXPORTED_RUNTIME_METHODS=[['FS','ccall','callMain','addRunDependency','removeRunDependency']]" \
-    "export runtime methods"
+# ---------------------------------------------------------------------------
+# Stage 1: the engine's resource WAD
+#
+# prboomx.wad is mandatory and is produced by a small host tool (rdatawad), not
+# by the game build. CMake's configure step demands SDL2 before it will let us
+# reach that target, even though rdatawad links none of it, so SDL2 is satisfied
+# with placeholder paths. Cheaper than installing a native SDL stack to generate
+# one 459KB file, and the hash check below proves it worked.
+# ---------------------------------------------------------------------------
 
-# 3. SAFE_HEAP is a debugging aid that costs a large slice of frame budget.
-#    Upstream ships it on; a release build shouldn't.
-patch_flag "-s SAFE_HEAP=1" "-s SAFE_HEAP=0" "disable SAFE_HEAP"
+echo "==> Building prboomx.wad"
 
-# 4. Pin the language standard to C17.
-#
-#    doomtype.h carries Doom's own `typedef enum { false, true } boolean;`,
-#    guarded by __bool_true_false_are_defined, which nothing here defines. In
-#    C23 `true` and `false` became keywords, so that enum stops compiling:
-#
-#        ../../src/doomtype.h:113:5: error: expected identifier
-#
-#    Emscripten 6.x ships a Clang that defaults to gnu23, so the upstream build
-#    fails on a current toolchain and succeeded on the one it was written for.
-patch_flag "-s ASYNCIFY -O3" "-s ASYNCIFY -std=gnu17 -O3" "pin C17"
+FAKE_SDL="${BUILD_DIR}/.fake-sdl2/include"
+mkdir -p "${FAKE_SDL}"
 
-# 5. Strip DWARF debug info, unless DOOM_DEBUG=1.
-#
-#    Upstream builds with -gsource-map, which is right for working on the engine
-#    and wrong for shipping it: of a 7.3MB .wasm, 4.94MB is .debug_* sections.
-#    It also emits a .wasm.map we don't distribute, so the sourceMappingURL
-#    section points at a 404. Stripping leaves the code, data and name sections,
-#    which is what actually runs.
-#
-#    Build with DOOM_DEBUG=1 bin/build-engine.sh to keep the symbols.
-#
-#    Patching EMFLAGS is only half of it. AC_PROG_CC defaults CFLAGS to "-g -O2"
-#    whenever CFLAGS is unset, and configure.ac prepends that to EMFLAGS, so a
-#    bare -g survives into the Makefile and emits DWARF anyway. Passing an
-#    explicit (possibly empty) CFLAGS to configure is what actually stops it:
-#    autoconf tests whether CFLAGS is set, not whether it is non-empty.
-if [ "${DOOM_DEBUG:-0}" = "1" ]; then
-    echo "    DOOM_DEBUG=1: keeping source maps"
-    CONFIGURE_CFLAGS="-g"
-else
-    patch_flag "-gsource-map -s INVOKE_RUN=1" "-s INVOKE_RUN=1" "strip debug info"
-    patch_flag " --source-map-base /" "" "strip source map base"
-    patch_flag 'CFLAGS="-O$OPT_LEVEL -g $WARNINGS $orig_CFLAGS"' 'CFLAGS="-O$OPT_LEVEL $WARNINGS $orig_CFLAGS"' "drop -g"
-    CONFIGURE_CFLAGS=""
+rm -rf "${BUILD_DIR}/build_native"
+mkdir -p "${BUILD_DIR}/build_native"
+cd "${BUILD_DIR}/build_native"
+
+cmake .. -DCMAKE_BUILD_TYPE=Release \
+    -DSDL2_LIBRARY=/usr/lib/libSystem.B.dylib \
+    -DSDL2_INCLUDE_DIR="${FAKE_SDL}" >/dev/null
+
+make prboomwad -j"$(( $(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2) > 3 ? $(getconf _NPROCESSORS_ONLN) - 2 : 1 ))" >/dev/null
+
+PRBOOM_WAD="$(find "${BUILD_DIR}/build_native" -name prboomx.wad | head -1)"
+
+if [ -z "${PRBOOM_WAD}" ]; then
+    echo "error: prboomx.wad was not produced." >&2
+    exit 1
 fi
 
+ACTUAL="$(shasum -a 256 "${PRBOOM_WAD}" | cut -d' ' -f1)"
+
+if [ "${ACTUAL}" != "${PRBOOM_WAD_SHA256}" ]; then
+    echo "error: prboomx.wad hash mismatch." >&2
+    echo "       expected ${PRBOOM_WAD_SHA256}" >&2
+    echo "       got      ${ACTUAL}" >&2
+    exit 1
+fi
+
+echo "    prboomx.wad verified"
+
 # ---------------------------------------------------------------------------
-# Build
+# Stage 2: the WebAssembly build
 #
-# USE_PTHREADS is already 0 upstream, and stays that way: a threaded build needs
-# SharedArrayBuffer, which needs COOP/COEP response headers that a Craft plugin
-# has no way to set on the host's server.
+# wasm/fs is preloaded into index.data. Only the engine's own resource WAD goes
+# in: no IWAD, so the package carries no game content and one build serves every
+# WAD. GL4ES is deliberately not built, so the software renderer is used;
+# upstream documents the OpenGL path as corrupting floor textures.
 # ---------------------------------------------------------------------------
 
-echo "==> Building (this takes a few minutes)"
-cd "${BUILD_DIR}"
-emconfigure autoreconf -fiv >/dev/null
-ac_cv_exeext=".html" emconfigure ./configure --host=none-none-none CFLAGS="${CONFIGURE_CFLAGS}" >/dev/null
-emmake make -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+echo "==> Building engine (this takes a few minutes)"
+
+cp "${PRBOOM_WAD}" "${BUILD_DIR}/wasm/fs/"
+
+rm -rf "${BUILD_DIR}/build_wasm"
+mkdir -p "${BUILD_DIR}/build_wasm"
+cd "${BUILD_DIR}/build_wasm"
+
+emcmake cmake .. -DCMAKE_BUILD_TYPE=Release >/dev/null
+
+CORES="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+JOBS=$(( CORES > 3 ? CORES - 2 : 1 ))
+echo "    using ${JOBS} of ${CORES} cores"
+make -j"${JOBS}" >/dev/null
 
 # ---------------------------------------------------------------------------
 # Install
 # ---------------------------------------------------------------------------
 
-JS_FILE="websockets-doom.js"
-WASM_FILE="websockets-doom.wasm"
-SRC_DIR="${BUILD_DIR}/src"
-
-for f in "${JS_FILE}" "${WASM_FILE}"; do
-    if [ ! -f "${SRC_DIR}/${f}" ]; then
-        echo "error: build finished but ${f} is missing from ${SRC_DIR}." >&2
+for f in index.js index.wasm index.data; do
+    if [ ! -f "${BUILD_DIR}/build_wasm/${f}" ]; then
+        echo "error: build finished but ${f} is missing." >&2
         exit 1
     fi
 done
 
 mkdir -p "${OUT_DIR}"
-cp "${SRC_DIR}/${JS_FILE}" "${SRC_DIR}/${WASM_FILE}" "${OUT_DIR}/"
+rm -f "${OUT_DIR}"/websockets-doom.* 2>/dev/null || true
+cp "${BUILD_DIR}/build_wasm/index.js" "${BUILD_DIR}/build_wasm/index.wasm" \
+   "${BUILD_DIR}/build_wasm/index.data" "${OUT_DIR}/"
 
 cat > "${OUT_DIR}/BUILD.json" <<EOF
 {
     "source": "${REPO_URL}",
+    "tag": "${REPO_TAG}",
     "commit": "${REPO_COMMIT}",
-    "engine": "Chocolate Doom (WebAssembly)",
+    "engine": "PrBoom+ / PrBoomX (Dwasm)",
     "license": "GPL-2.0-or-later",
     "emscripten": "$(emcc --version | head -1 | sed 's/"/\\"/g')",
     "built": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"

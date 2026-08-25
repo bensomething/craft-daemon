@@ -7,8 +7,8 @@
 ---
 
 This is a joke with a test suite. It adds a control panel section that runs a
-WebAssembly build of Chocolate Doom on a canvas, gated behind its own
-permission, loading a WAD you supply.
+WebAssembly build of PrBoom+ on a canvas, gated behind its own permission,
+loading a WAD you supply.
 
 It is not a catalogue plugin and it is not pretending to be useful. It is
 pretending to be well built, and it is not pretending about that.
@@ -90,12 +90,16 @@ cannot set on someone else's server.
 Doom wants arrows, Ctrl and Space. The host script pushes a Garnish UI layer
 (the same mechanism modals use) to scope the control panel's shortcuts away,
 then calls `preventDefault` on a capture-phase window listener for the keys the
-browser itself would act on. It never calls `stopPropagation`: SDL2 listens on
-`window` in the bubble phase, so halting propagation would disarm the game
-along with Craft.
+browser itself would act on. It never calls `stopPropagation`: SDL listens on
+`window`, so halting propagation would disarm the game along with Craft.
 
-**Saves persist in IndexedDB.** The build links `-lidbfs.js`, and the host
-mounts it at `/persist` for savegames and `default.cfg`. No server round trip.
+**Pointer lock waits for a gesture.** Browsers only grant a pointer lock from a
+user gesture, so a request raised from the game loop is refused. The engine asks
+through `Module.captureMouse` rather than calling `requestPointerLock` itself,
+and the host retries on the next keypress if the immediate attempt fails.
+
+**Saves persist in IndexedDB.** The engine handles this itself. No server round
+trip, and no patch needed.
 
 ## Content Security Policy
 
@@ -108,32 +112,39 @@ refuse to start.
 Only needed if you are working on the plugin. Site installs get the compiled
 artefacts from the package.
 
-No upstream publishes a prebuilt Doom WebAssembly release: `cloudflare/doom-wasm`
-has no tags and no releases, and there is no npm package. So the artefacts are
-built once and committed.
+Nobody publishes prebuilt Doom WebAssembly artefacts, so they are built once and
+committed.
 
 ```sh
-brew install emscripten automake autoconf pkg-config
+brew install emscripten cmake
 bin/build-engine.sh
 ```
 
-That clones [cloudflare/doom-wasm][doom-wasm] at a pinned commit, applies four
-documented build-flag patches, compiles, and writes `websockets-doom.js`,
-`websockets-doom.wasm` and `BUILD.json` into
-`src/web/assets/doom/dist/engine/`. Commit what it writes. The result is about
-2.3MB.
+That clones [GMH-Code/Dwasm][dwasm] at a pinned tag and builds in two stages.
+First a native stage generates `prboomx.wad`, the engine's mandatory resource
+WAD, and checks it against the SHA-256 upstream publishes. Then the Emscripten
+stage produces `index.js`, `index.wasm` and `index.data` into
+`src/web/assets/doom/dist/engine/`. Commit what it writes, about 2.5MB.
 
-Build with `DOOM_DEBUG=1 bin/build-engine.sh` to keep DWARF symbols and source
-maps. That produces a 7.3MB `.wasm`, which is why it is not the default.
+Exactly one patch is applied, and it exists because of the WAD policy above:
+Dwasm expects an IWAD baked into `index.data` at build time, so the build
+exports `FS` and the host writes whichever WAD the admin configured into the
+filesystem at runtime instead. One build serves every WAD, and the package
+carries no game content. The patch is matched literally and the build fails
+loudly if upstream moves, rather than silently producing an engine the host
+cannot drive.
+
+GL4ES is deliberately not built, so the software renderer is used. Upstream
+documents the OpenGL path as corrupting floor textures.
 
 The compiled artefacts are GPL-2.0-or-later, which is why this package is
 `MIT AND GPL-2.0-or-later` rather than plain MIT. The PHP never links against
 the engine (the browser loads the WebAssembly separately), so the two sit
 together as mere aggregation. See [NOTICE.md](NOTICE.md) for the source offer.
 
+[dwasm]: https://github.com/GMH-Code/Dwasm
+
 ## License
 
 MIT for everything written here. GPL-2.0-or-later for the compiled engine.
 See [LICENSE.md](LICENSE.md) and [NOTICE.md](NOTICE.md).
-
-[doom-wasm]: https://github.com/cloudflare/doom-wasm

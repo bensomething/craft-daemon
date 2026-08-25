@@ -1,8 +1,9 @@
 {
-    "source": "https://github.com/cloudflare/doom-wasm.git",
-    "commit": "65e0d3ae2ffa604155eebd96ed40da6567bd08f4",
-    "engine": "Chocolate Doom (WebAssembly)",
+    "source": "https://github.com/GMH-Code/Dwasm.git",
+    "tag": "v2.2.0",
+    "commit": "ddf0347a4fc115b11ffb1c5710768b7c47c46698",
+    "engine": "PrBoom+ / PrBoomX (Dwasm)",
     "license": "GPL-2.0-or-later",
     "emscripten": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.8-git",
-    "built": "2026-08-25T10:42:50Z"
+    "built": "2026-08-25T13:04:42Z"
 }

@@ -4,15 +4,16 @@ This directory holds the compiled Doom engine. It is empty on a fresh clone.
 
 Run `bin/build-engine.sh` from the plugin root to populate it with:
 
-- `websockets-doom.js` (Emscripten glue)
-- `websockets-doom.wasm` (the engine)
-- `BUILD.json` (provenance: upstream commit, Emscripten version, build date)
+- `index.js` (Emscripten glue)
+- `index.wasm` (the engine)
+- `index.data` (preloaded filesystem: the engine's own `prboomx.wad`, no game content)
+- `BUILD.json` (provenance: upstream tag and commit, Emscripten version, build date)
 
-Those files are GPL-2.0-or-later derivatives of cloudflare/doom-wasm. Read
+Those files are GPL-2.0-or-later derivatives of GMH-Code/Dwasm. Read
 [NOTICE.md](../../../../../../NOTICE.md) before redistributing them.
 
-Do not drop upstream's own build in here by hand. This plugin's host script
-expects four build-flag patches that upstream does not apply (IDBFS, exported
-runtime methods, SAFE_HEAP off, and `-std=gnu17` so the C23 keyword collision in
-`doomtype.h` does not break the build); the build script applies them and fails
-loudly if upstream's `configure.ac` has moved underneath it.
+Do not drop an upstream build in here by hand. This plugin's host script needs
+`FS` exported so it can write the admin's WAD into the filesystem at runtime,
+which stock Dwasm does not do (it expects an IWAD baked into `index.data` at
+build time). The build script applies that patch and fails loudly if upstream's
+`CMakeLists.txt` has moved underneath it.
