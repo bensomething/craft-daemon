@@ -40,8 +40,8 @@
 
         {% js %}
             Craft.Doom.boot('#doom-frame', {
-                engineUrl: {{ (engineUrl ~ '/' ~ engineJs)|json_encode|raw }},
-                wasmUrl: {{ (engineUrl ~ '/' ~ engineWasm)|json_encode|raw }},
+                engineUrl: {{ engineJsUrl|json_encode|raw }},
+                wasmUrl: {{ engineWasmUrl|json_encode|raw }},
                 wadUrl: {{ actionUrl('doom/play/wad')|json_encode|raw }},
                 pointerLock: {{ pointerLock ? 'true' : 'false' }}
             });

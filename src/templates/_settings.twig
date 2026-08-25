@@ -6,34 +6,15 @@
     </p>
 {% endif %}
 
-{{ forms.autosuggestField({
-    label: 'WAD path'|t('doom'),
-    instructions: 'An absolute path, an @alias, or a $ENVIRONMENT_VARIABLE pointing at the WAD to load. Leave this empty to use the first WAD found in {dir}.'|t('doom', {dir: wads.getStorageDir()}),
-    id: 'wadPath',
-    name: 'wadPath',
-    suggestEnvVars: true,
-    suggestAliases: true,
-    value: settings.wadPath,
-    errors: settings.getErrors('wadPath'),
-}) }}
-
-{{ forms.lightswitchField({
-    label: 'Pointer lock'|t('doom'),
-    instructions: 'Capture the mouse for mouselook when the canvas is clicked. Turn this off for keyboard-only play.'|t('doom'),
-    id: 'pointerLock',
-    name: 'pointerLock',
-    on: settings.pointerLock,
-    errors: settings.getErrors('pointerLock'),
-}) }}
-
 {% set found = wads.getStoredWads() %}
-
-<hr>
+{% set storageDir = wads.getStorageDir() %}
 
 <h2>{{ 'WADs'|t('doom') }}</h2>
 
 {% if found %}
-    <ul class="bullets">
+    <p class="light">{{ 'Found in {dir}. The first one is used unless you set a path below.'|t('doom', {dir: storageDir}) }}</p>
+
+    <ul class="bullets doom-wad-list">
         {% for path in found %}
             <li><code>{{ path }}</code></li>
         {% endfor %}
@@ -44,7 +25,12 @@
     </p>
 {% endif %}
 
-<div id="doom-fetch">
+{# Hooked by class, not id. This template's output is wrapped in
+   View::namespaceInputs(), which rewrites ids (doom-fetch becomes
+   settings-doom-fetch) but leaves classes alone, while the JS registered by
+   {% js %} is not namespaced at all. An id selector here silently matches
+   nothing. #}
+<div class="doom-fetch">
     <div class="buttons">
         <button type="button" class="btn doom-fetch-btn" data-icon="download">
             {{ found ? 'Download Freedoom again'|t('doom') : 'Download Freedoom'|t('doom') }}
@@ -56,13 +42,40 @@
     <p class="doom-fetch-status light"></p>
 </div>
 
+<hr>
+
+{{ forms.autosuggestField({
+    label: 'WAD path'|t('doom'),
+    instructions: 'Load a WAD from somewhere else instead. An absolute path, an @alias, or a $ENVIRONMENT_VARIABLE. Leave this empty to use the first WAD found in {dir}.'|t('doom', {dir: storageDir}),
+    id: 'wadPath',
+    name: 'wadPath',
+    suggestEnvVars: true,
+    suggestAliases: true,
+    value: settings.wadPath,
+    errors: settings.getErrors('wadPath'),
+}) }}
+
+<hr>
+
+{{ forms.lightswitchField({
+    label: 'Pointer lock'|t('doom'),
+    instructions: 'Capture the mouse for mouselook when the canvas is clicked. Turn this off for keyboard-only play.'|t('doom'),
+    id: 'pointerLock',
+    name: 'pointerLock',
+    on: settings.pointerLock,
+    errors: settings.getErrors('pointerLock'),
+}) }}
+
 {% css %}
-    #doom-fetch .doom-fetch-progress { max-width: 380px; }
-    #doom-fetch .doom-fetch-status:empty { display: none; }
-    #doom-fetch .doom-fetch-status { margin-top: 6px; }
-    #doom-fetch .doom-fetch-status.error { color: var(--error-color); }
+    .doom-wad-list { margin-top: 8px; }
+    .doom-fetch { margin-top: 20px; }
+    .doom-fetch .buttons { margin-top: 0; }
+    .doom-fetch .doom-fetch-progress { max-width: 380px; }
+    .doom-fetch .doom-fetch-status { margin-top: 8px; }
+    .doom-fetch .doom-fetch-status:empty { display: none; }
+    .doom-fetch .doom-fetch-status.error { color: var(--error-color); }
 {% endcss %}
 
 {% js %}
-    new Craft.DoomWadDownloader('#doom-fetch');
+    new Craft.DoomWadDownloader('.doom-fetch');
 {% endjs %}

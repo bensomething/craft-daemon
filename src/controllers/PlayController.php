@@ -46,21 +46,23 @@ class PlayController extends Controller
         $view = $this->getView();
         $view->registerAssetBundle(DoomAsset::class);
 
-        // The engine artefacts are published alongside the host script but
-        // loaded by URL at runtime, so the template needs their public base.
-        $engineUrl = $engine->isInstalled()
-            ? Craft::$app->getAssetManager()->getPublishedUrl(
-                DoomAsset::sourcePath(),
-                true,
-                'engine',
-            )
-            : null;
+        // Ask for each file's published URL rather than a base directory:
+        // getPublishedUrl() appends a ?v= cache buster, so appending a filename
+        // to a directory URL puts the path after the query string and asks the
+        // server for the directory instead.
+        $assetManager = Craft::$app->getAssetManager();
+        $engineJsUrl = null;
+        $engineWasmUrl = null;
+
+        if ($engine->isInstalled()) {
+            $engineJsUrl = $assetManager->getPublishedUrl(DoomAsset::sourcePath(), true, 'engine/' . Engine::JS_FILE);
+            $engineWasmUrl = $assetManager->getPublishedUrl(DoomAsset::sourcePath(), true, 'engine/' . Engine::WASM_FILE);
+        }
 
         return $this->renderTemplate('doom/play.twig', [
             'engineInstalled' => $engine->isInstalled(),
-            'engineUrl' => $engineUrl ?: null,
-            'engineJs' => Engine::JS_FILE,
-            'engineWasm' => Engine::WASM_FILE,
+            'engineJsUrl' => $engineJsUrl ?: null,
+            'engineWasmUrl' => $engineWasmUrl ?: null,
             'buildInfo' => $engine->getBuildInfo(),
             'wadPath' => $wads->getWadPath(),
             'pointerLock' => $plugin->getSettings()->pointerLock,
