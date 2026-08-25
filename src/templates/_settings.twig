@@ -17,15 +17,6 @@
     errors: settings.getErrors('wadPath'),
 }) }}
 
-{{ forms.textField({
-    label: 'Nav label'|t('doom'),
-    instructions: 'What the control panel nav item is called.'|t('doom'),
-    id: 'navLabel',
-    name: 'navLabel',
-    value: settings.navLabel,
-    errors: settings.getErrors('navLabel'),
-}) }}
-
 {{ forms.lightswitchField({
     label: 'Pointer lock'|t('doom'),
     instructions: 'Capture the mouse for mouselook when the canvas is clicked. Turn this off for keyboard-only play.'|t('doom'),
@@ -36,8 +27,12 @@
 }) }}
 
 {% set found = wads.getStoredWads() %}
+
+<hr>
+
+<h2>{{ 'WADs'|t('doom') }}</h2>
+
 {% if found %}
-    <h2>{{ 'Available WADs'|t('doom') }}</h2>
     <ul class="bullets">
         {% for path in found %}
             <li><code>{{ path }}</code></li>
@@ -45,6 +40,29 @@
     </ul>
 {% else %}
     <p class="light">
-        {{ 'No WADs found. Run craft doom/wad/fetch to install Freedoom.'|t('doom') }}
+        {{ 'No WADs found yet. Freedoom is a free, BSD licensed replacement for the id WADs, and it is all this needs to run.'|t('doom') }}
     </p>
 {% endif %}
+
+<div id="doom-fetch">
+    <div class="buttons">
+        <button type="button" class="btn doom-fetch-btn" data-icon="download">
+            {{ found ? 'Download Freedoom again'|t('doom') : 'Download Freedoom'|t('doom') }}
+        </button>
+    </div>
+
+    <div class="doom-fetch-progress"></div>
+
+    <p class="doom-fetch-status light"></p>
+</div>
+
+{% css %}
+    #doom-fetch .doom-fetch-progress { max-width: 380px; }
+    #doom-fetch .doom-fetch-status:empty { display: none; }
+    #doom-fetch .doom-fetch-status { margin-top: 6px; }
+    #doom-fetch .doom-fetch-status.error { color: var(--error-color); }
+{% endcss %}
+
+{% js %}
+    new Craft.DoomWadDownloader('#doom-fetch');
+{% endjs %}

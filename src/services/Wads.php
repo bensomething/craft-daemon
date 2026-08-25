@@ -123,12 +123,15 @@ class Wads extends Component
      * Downloads Freedoom, verifies it against the pinned checksum, and unpacks
      * freedoom1.wad and freedoom2.wad into storage.
      *
+     * @param callable|null $onProgress Called as ($downloadedBytes, $totalBytes)
+     * while the archive downloads. $totalBytes is 0 until the response headers
+     * land, and the callback fires very frequently: throttle in the caller.
      * @return string[] Absolute paths of the WADs written.
      * @throws RuntimeException if the download, the checksum or the unpack fails.
      * @throws \yii\base\ErrorException if the temp directory can't be cleaned up.
      * @throws \yii\base\Exception if the storage directory can't be created.
      */
-    public function fetchFreedoom(): array
+    public function fetchFreedoom(?callable $onProgress = null): array
     {
         $storageDir = $this->getStorageDir();
         FileHelper::createDirectory($storageDir);
@@ -139,7 +142,7 @@ class Wads extends Component
         $zipPath = $tempDir . '/freedoom.zip';
 
         try {
-            $this->download(self::FREEDOOM_URL, $zipPath);
+            $this->download(self::FREEDOOM_URL, $zipPath, $onProgress);
 
             $actual = hash_file('sha256', $zipPath);
 
@@ -216,14 +219,25 @@ class Wads extends Component
      *
      * @throws RuntimeException if the request fails.
      */
-    private function download(string $url, string $path): void
+    private function download(string $url, string $path, ?callable $onProgress = null): void
     {
+        $options = [
+            'sink' => $path,
+            'timeout' => 300,
+            'connect_timeout' => 30,
+        ];
+
+        if ($onProgress !== null) {
+            // Guzzle's signature is (downloadTotal, downloadedBytes, uploadTotal,
+            // uploadedBytes). Only the download half is meaningful here, and the
+            // totals arrive as 0 until the response headers do.
+            $options['progress'] = static function($downloadTotal, $downloadedBytes) use ($onProgress) {
+                $onProgress((int)$downloadedBytes, (int)$downloadTotal);
+            };
+        }
+
         try {
-            Craft::createGuzzleClient()->get($url, [
-                'sink' => $path,
-                'timeout' => 300,
-                'connect_timeout' => 30,
-            ]);
+            Craft::createGuzzleClient()->get($url, $options);
         } catch (Throwable $e) {
             throw new RuntimeException("Could not download {$url}: {$e->getMessage()}", 0, $e);
         }

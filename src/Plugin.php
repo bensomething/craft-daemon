@@ -6,6 +6,7 @@ use bensomething\doom\controllers\PlayController;
 use bensomething\doom\models\Settings;
 use bensomething\doom\services\Engine;
 use bensomething\doom\services\Wads;
+use bensomething\doom\web\assets\settings\SettingsAsset;
 use Craft;
 use craft\base\Model;
 use craft\events\RegisterUrlRulesEvent;
@@ -79,8 +80,10 @@ class Plugin extends \craft\base\Plugin
             return null;
         }
 
-        $item['label'] = $this->getSettings()->navLabel ?: Craft::t('doom', 'Doom');
-        $item['icon'] = '@bensomething/doom/icon.svg';
+        // A Craft system icon rather than the plugin's own icon.svg: nav icons
+        // are masked to currentColor at 16px, which turns anything detailed
+        // into a blob.
+        $item['icon'] = 'face-smile-horns';
 
         return $item;
     }
@@ -92,6 +95,8 @@ class Plugin extends \craft\base\Plugin
 
     protected function settingsHtml(): ?string
     {
+        Craft::$app->getView()->registerAssetBundle(SettingsAsset::class);
+
         return Craft::$app->getView()->renderTemplate('doom/_settings.twig', [
             'settings' => $this->getSettings(),
             'wads' => $this->getWads(),

@@ -14,11 +14,6 @@ class Settings extends Model
     public ?string $wadPath = null;
 
     /**
-     * @var string The CP nav item's label.
-     */
-    public string $navLabel = 'Doom';
-
-    /**
      * @var bool Whether pointer lock is offered for mouselook. Off means
      * keyboard only, which some people prefer and some browsers force.
      */
@@ -43,9 +38,8 @@ class Settings extends Model
     protected function defineRules(): array
     {
         return [
-            [['wadPath', 'navLabel'], 'trim'],
-            [['wadPath', 'navLabel'], 'string'],
-            [['navLabel'], 'required'],
+            [['wadPath'], 'trim'],
+            [['wadPath'], 'string'],
             [['pointerLock'], 'boolean'],
         ];
     }
