@@ -2,7 +2,17 @@
    coordinates are offset by however much you added. */
 .doom-frame {
     position: relative;
-    max-width: 720px;
+    /* The frame reserves its own box rather than being sized by the canvas.
+       Before the engine runs, the canvas has no backing store and reports the
+       HTML default of 300x150, so a canvas-driven frame starts at 2:1 and
+       jumps when the engine sets its real size. This ratio matches the
+       engine's shipped screen_resolution of 1366x768. */
+    aspect-ratio: 16 / 9;
+    /* Fills the content pane, so height follows width through the ratio above
+       and both grow together. The cap only stops it becoming absurd on an
+       ultrawide display; the pane is the real constraint. */
+    width: 100%;
+    max-width: 1280px;
     margin: 0 auto;
     background: #000;
     border-radius: var(--large-border-radius, 5px);
@@ -11,13 +21,12 @@
 
 .doom-canvas {
     display: block;
-    /* The engine sets the backing store from its own screen_resolution
-       setting, so the display size follows that ratio rather than a hardcoded
-       one. height: auto is only safe because the backing store is genuinely
-       set here; when it is left at the HTML default of 300x150 this decouples
-       the two and the game draws into a corner of its own canvas. */
+    /* Fills the frame exactly. The engine owns the backing store; this only
+       says how large to draw it. */
+    position: absolute;
+    inset: 0;
     width: 100%;
-    height: auto;
+    height: 100%;
     background: #000;
     border: 0;
     padding: 0;
