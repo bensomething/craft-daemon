@@ -44,7 +44,7 @@ php craft daemon/wad/fetch
 
 That downloads Freedoom 0.13.0, verifies it against a checksum pinned in the
 plugin source, and unpacks `freedoom1.wad` and `freedoom2.wad` into
-`storage/doom/`. Nothing else to configure.
+`storage/daemon/`. Nothing else to configure.
 
 Run it once per environment. `storage/` is not usually deployed, so a fresh
 server needs its own copy.
@@ -53,13 +53,13 @@ server needs its own copy.
 
 Set the path in **Settings** to **Plugins** to **Daemon**. It takes an absolute
 path, an `@alias`, or a `$ENVIRONMENT_VARIABLE`, and it wins over anything in
-`storage/doom/`.
+`storage/daemon/`.
 
 ## Console commands
 
 | Command | What it does |
 | --- | --- |
-| `daemon/wad/fetch` | Downloads and verifies Freedoom into `storage/doom/` |
+| `daemon/wad/fetch` | Downloads and verifies Freedoom into `storage/daemon/` |
 | `daemon/wad/list` | Lists the WADs the plugin can see, marking the active one |
 | `daemon/wad/status` | Prints where it looked, what it found, and how the engine was built |
 

@@ -10,14 +10,14 @@ use yii\console\ExitCode;
 use yii\helpers\Console;
 
 /**
- * Manages the WAD files Doom loads.
+ * Manages the WAD files the engine loads.
  */
 class WadController extends Controller
 {
     public $defaultAction = 'list';
 
     /**
-     * Downloads Freedoom and installs it into storage/doom/.
+     * Downloads Freedoom and installs it into storage/daemon/.
      *
      * Freedoom is a BSD-licensed, engine-compatible replacement for the id
      * WADs. It is fetched rather than bundled so the Composer package stays

@@ -35,7 +35,7 @@ No WAD ships with this plugin.
 
 `craft daemon/wad/fetch` downloads [Freedoom][freedoom], which is distributed
 under a BSD 3-clause license. Freedoom is not redistributed by this package; it
-is fetched at the administrator's request and written to `storage/doom/`.
+is fetched at the administrator's request and written to `storage/daemon/`.
 
 If you point the plugin at a commercial or shareware WAD instead, the terms of
 that WAD are between you and its copyright holder.
