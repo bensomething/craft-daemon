@@ -1,6 +1,6 @@
 {
-    "name": "bensomething/craft-doom",
-    "description": "Doom in the Craft control panel. An explicit novelty, engineered like it isn't.",
+    "name": "bensomething/craft-daemon",
+    "description": "Play Doom engine games in the Craft control panel. An explicit novelty, engineered like it isn't.",
     "type": "craft-plugin",
     "license": "MIT AND GPL-2.0-or-later",
     "keywords": [
@@ -9,13 +9,15 @@
         "craftcms",
         "plugin",
         "doom",
+        "prboom",
+        "freedoom",
         "wasm",
         "webassembly",
         "novelty"
     ],
     "support": {
-        "issues": "https://github.com/bensomething/craft-doom/issues",
-        "source": "https://github.com/bensomething/craft-doom"
+        "issues": "https://github.com/bensomething/craft-daemon/issues",
+        "source": "https://github.com/bensomething/craft-daemon"
     },
     "require": {
         "php": "^8.2",
@@ -29,22 +31,22 @@
     },
     "autoload": {
         "psr-4": {
-            "bensomething\\doom\\": "src/"
+            "bensomething\\daemon\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "bensomething\\doom\\tests\\": "tests/"
+            "bensomething\\daemon\\tests\\": "tests/"
         }
     },
     "extra": {
-        "handle": "doom",
-        "name": "Doom",
+        "handle": "daemon",
+        "name": "Daemon",
         "developer": "Ben Smith",
         "developerUrl": "https://bensomething.com",
-        "documentationUrl": "https://github.com/bensomething/craft-doom",
-        "changelogUrl": "https://raw.githubusercontent.com/bensomething/craft-doom/develop/CHANGELOG.md",
-        "class": "bensomething\\doom\\Plugin"
+        "documentationUrl": "https://github.com/bensomething/craft-daemon",
+        "changelogUrl": "https://raw.githubusercontent.com/bensomething/craft-daemon/develop/CHANGELOG.md",
+        "class": "bensomething\\daemon\\Plugin"
     },
     "config": {
         "allow-plugins": {

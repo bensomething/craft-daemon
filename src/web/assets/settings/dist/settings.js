@@ -2,8 +2,8 @@
  * The Freedoom download button on the settings screen.
  *
  * The request that does the downloading can't report its own progress, so the
- * work and the progress live in two requests: POST doom/wad/fetch does the
- * download and writes percentages to the cache, and doom/wad/progress is polled
+ * work and the progress live in two requests: POST daemon/wad/fetch does the
+ * download and writes percentages to the cache, and daemon/wad/progress is polled
  * alongside it to read them back.
  */
 (function ($) {
@@ -11,7 +11,7 @@
 
     var POLL_INTERVAL = 500;
 
-    var DoomWadDownloader = Garnish.Base.extend({
+    var DaemonWadDownloader = Garnish.Base.extend({
         $container: null,
         $button: null,
         $status: null,
@@ -23,9 +23,9 @@
 
         init: function (container) {
             this.$container = $(container);
-            this.$button = this.$container.find('.doom-fetch-btn');
-            this.$status = this.$container.find('.doom-fetch-status');
-            this.$progress = this.$container.find('.doom-fetch-progress');
+            this.$button = this.$container.find('.daemon-fetch-btn');
+            this.$status = this.$container.find('.daemon-fetch-status');
+            this.$progress = this.$container.find('.daemon-fetch-progress');
 
             this.progressBar = new Craft.ProgressBar(this.$progress);
 
@@ -39,7 +39,7 @@
 
             this.running = true;
             this.$button.addClass('disabled').attr('aria-disabled', 'true');
-            this.setStatus(Craft.t('doom', 'Starting download…'));
+            this.setStatus(Craft.t('daemon', 'Starting download…'));
 
             this.progressBar.setProgressPercentage(0);
             this.progressBar.showProgressBar();
@@ -48,7 +48,7 @@
 
             var self = this;
 
-            Craft.sendActionRequest('POST', 'doom/wad/fetch')
+            Craft.sendActionRequest('POST', 'daemon/wad/fetch')
                 .then(function (response) {
                     self.succeed(response.data);
                 })
@@ -68,14 +68,14 @@
         poll: function () {
             var self = this;
 
-            Craft.sendActionRequest('GET', 'doom/wad/progress')
+            Craft.sendActionRequest('GET', 'daemon/wad/progress')
                 .then(function (response) {
                     var data = response.data || {};
 
                     if (data.status === 'downloading' && data.total > 0) {
                         var percent = Math.round((data.downloaded / data.total) * 100);
                         self.progressBar.setProgressPercentage(percent);
-                        self.setStatus(Craft.t('doom', 'Downloading Freedoom: {percent}%', {percent: percent}));
+                        self.setStatus(Craft.t('daemon', 'Downloading Freedoom: {percent}%', {percent: percent}));
                     }
                 })
                 .catch(function () {
@@ -92,8 +92,8 @@
         succeed: function (data) {
             this.stop();
             this.progressBar.setProgressPercentage(100);
-            this.setStatus(Craft.t('doom', 'Freedoom installed. Reloading…'));
-            Craft.cp.displayNotice(Craft.t('doom', 'Freedoom installed.'));
+            this.setStatus(Craft.t('daemon', 'Freedoom installed. Reloading…'));
+            Craft.cp.displayNotice(Craft.t('daemon', 'Freedoom installed.'));
 
             // The WAD list and the "no WADs" message are both rendered server
             // side, so a reload is the honest way to show the new state.
@@ -106,8 +106,8 @@
             this.stop();
             this.progressBar.hideProgressBar();
             this.$button.removeClass('disabled').removeAttr('aria-disabled');
-            this.setStatus(message || Craft.t('doom', 'The download failed.'), true);
-            Craft.cp.displayError(message || Craft.t('doom', 'The download failed.'));
+            this.setStatus(message || Craft.t('daemon', 'The download failed.'), true);
+            Craft.cp.displayError(message || Craft.t('daemon', 'The download failed.'));
         },
 
         stop: function () {
@@ -129,5 +129,5 @@
         },
     });
 
-    Craft.DoomWadDownloader = DoomWadDownloader;
+    Craft.DaemonWadDownloader = DaemonWadDownloader;
 })(jQuery);

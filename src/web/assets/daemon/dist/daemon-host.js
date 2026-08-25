@@ -28,9 +28,9 @@
     ];
 
     /* Where the admin's IWAD is written before the engine starts. */
-    var WAD_PATH = '/doom.wad';
+    var WAD_PATH = '/iwad.wad';
 
-    var DoomHost = Garnish.Base.extend({
+    var DaemonHost = Garnish.Base.extend({
         $container: null,
         $canvas: null,
         $overlay: null,
@@ -42,14 +42,14 @@
         keyHandler: null,
 
         init: function (container, settings) {
-            this.setSettings(settings, DoomHost.defaults);
+            this.setSettings(settings, DaemonHost.defaults);
 
             this.$container = $(container);
-            this.$canvas = this.$container.find('.doom-canvas');
-            this.$overlay = this.$container.find('.doom-overlay');
-            this.$status = this.$container.find('.doom-status');
+            this.$canvas = this.$container.find('.daemon-canvas');
+            this.$overlay = this.$container.find('.daemon-overlay');
+            this.$status = this.$container.find('.daemon-status');
 
-            this.addListener(this.$overlay.find('.doom-start'), 'click', 'start');
+            this.addListener(this.$overlay.find('.daemon-start'), 'click', 'start');
 
             this.addListener(this.$canvas, 'contextmenu', function (ev) {
                 ev.preventDefault();
@@ -66,15 +66,15 @@
             }
 
             this.running = true;
-            this.$overlay.addClass('doom-overlay--busy');
+            this.$overlay.addClass('daemon-overlay--busy');
 
             var self = this;
 
-            this.setStatus(Craft.t('doom', 'Loading WAD…'));
+            this.setStatus(Craft.t('daemon', 'Loading WAD…'));
 
             this.fetchBuffer(this.settings.wadUrl)
                 .then(function (wad) {
-                    self.setStatus(Craft.t('doom', 'Loading engine…'));
+                    self.setStatus(Craft.t('daemon', 'Loading engine…'));
                     return self.fetchBuffer(self.settings.wasmUrl).then(function (wasm) {
                         return {wad: new Uint8Array(wad), wasm: wasm};
                     });
@@ -113,7 +113,7 @@
 
             canvas.addEventListener('webglcontextlost', function (ev) {
                 ev.preventDefault();
-                self.fail(new Error(Craft.t('doom', 'The WebGL context was lost. Reload the page to play again.')));
+                self.fail(new Error(Craft.t('daemon', 'The WebGL context was lost. Reload the page to play again.')));
             }, false);
 
             var module = {
@@ -190,7 +190,7 @@
 
                 softExit: function (status) {
                     self.releaseInput();
-                    console.log('[doom] engine exited with status', status);
+                    console.log('[daemon] engine exited with status', status);
                 },
 
                 print: function (text) {
@@ -256,7 +256,7 @@
         },
 
         onReady: function () {
-            this.$overlay.addClass('doom-overlay--hidden');
+            this.$overlay.addClass('daemon-overlay--hidden');
             this.captureInput();
             this.$canvas.trigger('focus');
         },
@@ -314,12 +314,12 @@
         },
 
         fail: function (error) {
-            console.error('[doom]', error);
+            console.error('[daemon]', error);
             this.running = false;
             this.releaseInput();
             this.$overlay
-                .removeClass('doom-overlay--busy doom-overlay--hidden')
-                .addClass('doom-overlay--error');
+                .removeClass('daemon-overlay--busy daemon-overlay--hidden')
+                .addClass('daemon-overlay--error');
             this.setStatus(error && error.message ? error.message : String(error));
         },
 
@@ -337,11 +337,11 @@
         },
     });
 
-    Craft.Doom = {
-        DoomHost: DoomHost,
+    Craft.Daemon = {
+        DaemonHost: DaemonHost,
 
         boot: function (container, settings) {
-            return new DoomHost(container, settings);
+            return new DaemonHost(container, settings);
         },
     };
 })(jQuery);

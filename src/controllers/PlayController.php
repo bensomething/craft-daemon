@@ -1,10 +1,10 @@
 <?php
 
-namespace bensomething\doom\controllers;
+namespace bensomething\daemon\controllers;
 
-use bensomething\doom\Plugin;
-use bensomething\doom\services\Engine;
-use bensomething\doom\web\assets\doom\DoomAsset;
+use bensomething\daemon\Plugin;
+use bensomething\daemon\services\Engine;
+use bensomething\daemon\web\assets\daemon\DaemonAsset;
 use Craft;
 use craft\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -16,7 +16,7 @@ class PlayController extends Controller
      * The permission handle. Declared here, on the controller that enforces it,
      * so registration, the gate and the nav check can't drift apart.
      */
-    public const PERMISSION_PLAY = 'doom:play';
+    public const PERMISSION_PLAY = 'daemon:play';
 
     /**
      * @throws \yii\web\ForbiddenHttpException if the user can't play.
@@ -44,7 +44,7 @@ class PlayController extends Controller
         $wads = $plugin->getWads();
 
         $view = $this->getView();
-        $view->registerAssetBundle(DoomAsset::class);
+        $view->registerAssetBundle(DaemonAsset::class);
 
         // Ask for each file's published URL rather than a base directory:
         // getPublishedUrl() appends a ?v= cache buster, so appending a filename
@@ -56,12 +56,12 @@ class PlayController extends Controller
         $engineDataUrl = null;
 
         if ($engine->isInstalled()) {
-            $engineJsUrl = $assetManager->getPublishedUrl(DoomAsset::sourcePath(), true, 'engine/' . Engine::JS_FILE);
-            $engineWasmUrl = $assetManager->getPublishedUrl(DoomAsset::sourcePath(), true, 'engine/' . Engine::WASM_FILE);
-            $engineDataUrl = $assetManager->getPublishedUrl(DoomAsset::sourcePath(), true, 'engine/' . Engine::DATA_FILE);
+            $engineJsUrl = $assetManager->getPublishedUrl(DaemonAsset::sourcePath(), true, 'engine/' . Engine::JS_FILE);
+            $engineWasmUrl = $assetManager->getPublishedUrl(DaemonAsset::sourcePath(), true, 'engine/' . Engine::WASM_FILE);
+            $engineDataUrl = $assetManager->getPublishedUrl(DaemonAsset::sourcePath(), true, 'engine/' . Engine::DATA_FILE);
         }
 
-        return $this->renderTemplate('doom/play.twig', [
+        return $this->renderTemplate('daemon/play.twig', [
             'engineInstalled' => $engine->isInstalled(),
             'engineJsUrl' => $engineJsUrl ?: null,
             'engineWasmUrl' => $engineWasmUrl ?: null,

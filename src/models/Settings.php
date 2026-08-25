@@ -1,6 +1,6 @@
 <?php
 
-namespace bensomething\doom\models;
+namespace bensomething\daemon\models;
 
 use craft\base\Model;
 use craft\helpers\App;
@@ -9,7 +9,7 @@ class Settings extends Model
 {
     /**
      * @var string|null Path to the WAD to load, as an alias or an env var
-     * reference. Null means "whatever `doom/wad/fetch` put in storage".
+     * reference. Null means "whatever `daemon/wad/fetch` put in storage".
      */
     public ?string $wadPath = null;
 

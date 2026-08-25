@@ -1,8 +1,8 @@
 <?php
 
-namespace bensomething\doom\controllers;
+namespace bensomething\daemon\controllers;
 
-use bensomething\doom\Plugin;
+use bensomething\daemon\Plugin;
 use Craft;
 use craft\web\Controller;
 use Throwable;
@@ -24,7 +24,7 @@ class WadController extends Controller
      * on a novelty plugin; two admins racing to download the same file is not a
      * scenario worth engineering around.
      */
-    private const PROGRESS_KEY = 'doom.wad.progress';
+    private const PROGRESS_KEY = 'daemon.wad.progress';
 
     /**
      * Writing progress on every Guzzle callback would hammer the cache for no
@@ -105,7 +105,7 @@ class WadController extends Controller
         $cache->delete(self::PROGRESS_KEY);
 
         return $this->asJson([
-            'message' => Craft::t('doom', 'Freedoom installed.'),
+            'message' => Craft::t('daemon', 'Freedoom installed.'),
             'wads' => $written,
         ]);
     }

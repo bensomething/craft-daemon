@@ -5,7 +5,7 @@
 ### Added
 - Initial release: a control panel section running a WebAssembly build of PrBoom+ on a canvas, behind its own `doom:play` permission.
 - Settings screen with a "Download Freedoom" button and a progress bar, so a WAD can be installed without dropping to a terminal.
-- `doom/wad/fetch`, `doom/wad/list` and `doom/wad/status` console commands.
+- `daemon/wad/fetch`, `daemon/wad/list` and `daemon/wad/status` console commands.
 - `bin/build-engine.sh`, which builds the engine reproducibly from a pinned upstream tag and verifies the engine resource WAD against the SHA-256 upstream publishes.
 
 ### Notes

@@ -23,7 +23,7 @@ PRBOOM_WAD_SHA256="506fe7159eaf0a6cb479f866131ec7653638bb08928029cb8dabe1b3b1c94
 
 PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${PLUGIN_DIR}/build/dwasm"
-OUT_DIR="${PLUGIN_DIR}/src/web/assets/doom/dist/engine"
+OUT_DIR="${PLUGIN_DIR}/src/web/assets/daemon/dist/engine"
 
 require() {
     command -v "$1" >/dev/null 2>&1 || {

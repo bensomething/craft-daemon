@@ -1,6 +1,6 @@
 <?php
 
-namespace bensomething\doom\services;
+namespace bensomething\daemon\services;
 
 use craft\helpers\Json;
 use yii\base\Component;
@@ -45,7 +45,7 @@ class Engine extends Component
      */
     public function getPath(): string
     {
-        return dirname(__DIR__) . '/web/assets/doom/dist/engine';
+        return dirname(__DIR__) . '/web/assets/daemon/dist/engine';
     }
 
     /**

@@ -1,6 +1,6 @@
 <?php
 
-namespace bensomething\doom\web\assets\settings;
+namespace bensomething\daemon\web\assets\settings;
 
 use craft\web\AssetBundle;
 use craft\web\assets\cp\CpAsset;

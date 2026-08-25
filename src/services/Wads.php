@@ -1,8 +1,8 @@
 <?php
 
-namespace bensomething\doom\services;
+namespace bensomething\daemon\services;
 
-use bensomething\doom\Plugin;
+use bensomething\daemon\Plugin;
 use Craft;
 use craft\helpers\FileHelper;
 use RuntimeException;
@@ -21,7 +21,7 @@ use ZipArchive;
  * So there are two ways a WAD gets here, checked in this order:
  *
  *   1. An explicit path in the plugin settings.
- *   2. Anything in storage/doom/, which is where `doom/wad/fetch` puts things.
+ *   2. Anything in storage/daemon/, which is where `daemon/wad/fetch` puts things.
  */
 class Wads extends Component
 {
@@ -49,7 +49,7 @@ class Wads extends Component
      */
     public function getStorageDir(): string
     {
-        return Craft::getAlias('@storage/doom');
+        return Craft::getAlias('@storage/daemon');
     }
 
     /**
@@ -136,7 +136,7 @@ class Wads extends Component
         $storageDir = $this->getStorageDir();
         FileHelper::createDirectory($storageDir);
 
-        $tempDir = Craft::$app->getPath()->getTempPath() . '/doom-freedoom-' . bin2hex(random_bytes(6));
+        $tempDir = Craft::$app->getPath()->getTempPath() . '/daemon-freedoom-' . bin2hex(random_bytes(6));
         FileHelper::createDirectory($tempDir);
 
         $zipPath = $tempDir . '/freedoom.zip';

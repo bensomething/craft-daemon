@@ -1,6 +1,6 @@
 /* The canvas must carry no border and no padding, or SDL's mouse
    coordinates are offset by however much you added. */
-.doom-frame {
+.daemon-frame {
     position: relative;
     /* The frame reserves its own box rather than being sized by the canvas.
        Before the engine runs, the canvas has no backing store and reports the
@@ -19,7 +19,7 @@
     overflow: hidden;
 }
 
-.doom-canvas {
+.daemon-canvas {
     display: block;
     /* Fills the frame exactly. The engine owns the backing store; this only
        says how large to draw it. */
@@ -34,11 +34,11 @@
     outline: none;
 }
 
-.doom-canvas:focus-visible {
+.daemon-canvas:focus-visible {
     box-shadow: inset 0 0 0 2px var(--hairline-color, #cdd8e4);
 }
 
-.doom-overlay {
+.daemon-overlay {
     position: absolute;
     inset: 0;
     display: flex;
@@ -52,30 +52,30 @@
     color: #fff;
 }
 
-.doom-overlay--hidden {
+.daemon-overlay--hidden {
     display: none;
 }
 
-.doom-overlay--busy .doom-start {
+.daemon-overlay--busy .daemon-start {
     display: none;
 }
 
-.doom-overlay--error .doom-start {
+.daemon-overlay--error .daemon-start {
     display: none;
 }
 
-.doom-overlay--error .doom-status {
+.daemon-overlay--error .daemon-status {
     color: #ff6b6b;
 }
 
-.doom-status {
+.daemon-status {
     font-size: 13px;
     line-height: 1.4;
     color: #b6c1cd;
     max-width: 44ch;
 }
 
-.doom-hint {
+.daemon-hint {
     margin-top: 4px;
     font-size: 12px;
     color: #7f8a96;

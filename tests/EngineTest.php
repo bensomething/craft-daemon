@@ -1,8 +1,8 @@
 <?php
 
-namespace bensomething\doom\tests;
+namespace bensomething\daemon\tests;
 
-use bensomething\doom\services\Engine;
+use bensomething\daemon\services\Engine;
 use PHPUnit\Framework\TestCase;
 
 class EngineTest extends TestCase
@@ -17,7 +17,7 @@ class EngineTest extends TestCase
         $path = (new Engine())->getPath();
 
         $this->assertDirectoryExists($path);
-        $this->assertStringEndsWith('src/web/assets/doom/dist/engine', $path);
+        $this->assertStringEndsWith('src/web/assets/daemon/dist/engine', $path);
     }
 
     /**

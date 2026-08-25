@@ -1,9 +1,9 @@
 <?php
 
-namespace bensomething\doom\console\controllers;
+namespace bensomething\daemon\console\controllers;
 
-use bensomething\doom\Plugin;
-use bensomething\doom\services\Wads;
+use bensomething\daemon\Plugin;
+use bensomething\daemon\services\Wads;
 use Throwable;
 use yii\console\Controller;
 use yii\console\ExitCode;
@@ -60,7 +60,7 @@ class WadController extends Controller
         $active = $wads->getWadPath();
 
         if ($stored === [] && $active === null) {
-            $this->stdout('No WADs found. Run `craft doom/wad/fetch` to install Freedoom.' . PHP_EOL, Console::FG_YELLOW);
+            $this->stdout('No WADs found. Run `craft daemon/wad/fetch` to install Freedoom.' . PHP_EOL, Console::FG_YELLOW);
 
             return ExitCode::OK;
         }

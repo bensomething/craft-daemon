@@ -1,11 +1,11 @@
 <?php
 
-namespace bensomething\doom\web\assets\doom;
+namespace bensomething\daemon\web\assets\daemon;
 
 use craft\web\AssetBundle;
 use craft\web\assets\cp\CpAsset;
 
-class DoomAsset extends AssetBundle
+class DaemonAsset extends AssetBundle
 {
     public $sourcePath = __DIR__ . '/dist';
 
@@ -14,11 +14,11 @@ class DoomAsset extends AssetBundle
     ];
 
     public $css = [
-        'doom.css',
+        'daemon.css',
     ];
 
     public $js = [
-        'doom-host.js',
+        'daemon-host.js',
     ];
 
     /**

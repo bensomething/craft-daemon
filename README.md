@@ -1,8 +1,8 @@
 <p align="center"><img src="src/icon.svg" width="96" alt="Doom"></p>
 
-<h1 align="center">Doom for Craft CMS</h1>
+<h1 align="center">Daemon</h1>
 
-<p align="center">Doom, in the control panel. An explicit novelty, engineered like it isn't.</p>
+<p align="center">A Doom engine, in the Craft control panel. An explicit novelty, engineered like it isn't.</p>
 
 ---
 
@@ -22,8 +22,8 @@ pretending to be well built, and it is not pretending about that.
 ## Installation
 
 ```sh
-composer require bensomething/craft-doom
-php craft plugin/install doom
+composer require bensomething/craft-daemon
+php craft plugin/install daemon
 ```
 
 The engine comes with the package. It is a compiled artefact committed to this
@@ -39,7 +39,7 @@ No WAD ships here because Freedoom is 28.8MB per IWAD, and that is a lot to put
 in everyone's `vendor/` for a joke. So:
 
 ```sh
-php craft doom/wad/fetch
+php craft daemon/wad/fetch
 ```
 
 That downloads Freedoom 0.13.0, verifies it against a checksum pinned in the
@@ -51,7 +51,7 @@ server needs its own copy.
 
 ### Already have a WAD?
 
-Set the path in **Settings** to **Plugins** to **Doom**. It takes an absolute
+Set the path in **Settings** to **Plugins** to **Daemon**. It takes an absolute
 path, an `@alias`, or a `$ENVIRONMENT_VARIABLE`, and it wins over anything in
 `storage/doom/`.
 
@@ -59,14 +59,14 @@ path, an `@alias`, or a `$ENVIRONMENT_VARIABLE`, and it wins over anything in
 
 | Command | What it does |
 | --- | --- |
-| `doom/wad/fetch` | Downloads and verifies Freedoom into `storage/doom/` |
-| `doom/wad/list` | Lists the WADs the plugin can see, marking the active one |
-| `doom/wad/status` | Prints where it looked, what it found, and how the engine was built |
+| `daemon/wad/fetch` | Downloads and verifies Freedoom into `storage/doom/` |
+| `daemon/wad/list` | Lists the WADs the plugin can see, marking the active one |
+| `daemon/wad/status` | Prints where it looked, what it found, and how the engine was built |
 
 ## Permissions
 
-`doom:play` controls access to the section. It is registered separately from
-Craft's automatic `accessplugin-doom` so it can be granted on its own, and the
+`daemon:play` controls access to the section. It is registered separately from
+Craft's automatic `accessplugin-daemon` so it can be granted on its own, and the
 nav item disappears for anyone without it.
 
 ## Notes for the curious
@@ -124,7 +124,7 @@ That clones [GMH-Code/Dwasm][dwasm] at a pinned tag and builds in two stages.
 First a native stage generates `prboomx.wad`, the engine's mandatory resource
 WAD, and checks it against the SHA-256 upstream publishes. Then the Emscripten
 stage produces `index.js`, `index.wasm` and `index.data` into
-`src/web/assets/doom/dist/engine/`. Commit what it writes, about 2.5MB.
+`src/web/assets/daemon/dist/engine/`. Commit what it writes, about 2.5MB.
 
 Exactly one patch is applied, and it exists because of the WAD policy above:
 Dwasm expects an IWAD baked into `index.data` at build time, so the build
@@ -143,6 +143,24 @@ the engine (the browser loads the WebAssembly separately), so the two sit
 together as mere aggregation. See [NOTICE.md](NOTICE.md) for the source offer.
 
 [dwasm]: https://github.com/GMH-Code/Dwasm
+
+## Why "Daemon"
+
+The package contains no Doom. It ships a WebAssembly build of PrBoom+ and, by
+default, plays Freedoom. "Doom" names a game that is not in the box, and it is
+a live trademark; using it to describe what the engine is compatible with is
+fair, using it as a product name is a different thing.
+
+The word comes from the engine's own startup log:
+
+    Z_Init: Init zone memory allocation daemon
+
+Which is convenient, because it means three things at once: the Unix sense that
+suits a CMS plugin, the memory allocator, and the things you shoot.
+
+This project is not affiliated with, endorsed by, or in any way connected to
+id Software, Bethesda Softworks, or ZeniMax Media. All trademarks and
+copyrights are the property of their respective owners.
 
 ## License
 

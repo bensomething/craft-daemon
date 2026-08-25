@@ -49,7 +49,7 @@ jobs:
       # CI checks is that whatever is committed is internally consistent.
       - name: Check engine provenance
         run: |
-          dir=src/web/assets/doom/dist/engine
+          dir=src/web/assets/daemon/dist/engine
 
           if [ ! -f "$dir/index.wasm" ]; then
             echo "No engine committed yet. Skipping."

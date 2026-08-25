@@ -2,51 +2,51 @@
 
 {% if not engine.isInstalled() %}
     <p class="warning">
-        {{ 'The engine is missing from this install, so the section will not run. See the plugin README.'|t('doom') }}
+        {{ 'The engine is missing from this install, so the section will not run. See the plugin README.'|t('daemon') }}
     </p>
 {% endif %}
 
 {% set found = wads.getStoredWads() %}
 {% set storageDir = wads.getStorageDir() %}
 
-<h2 class="doom-heading">{{ 'WADs'|t('doom') }}</h2>
+<h2 class="daemon-heading">{{ 'WADs'|t('daemon') }}</h2>
 
 {% if found %}
-    <p class="light">{{ 'Found in {dir}. The first one is used unless you set a path below.'|t('doom', {dir: storageDir}) }}</p>
+    <p class="light">{{ 'Found in {dir}. The first one is used unless you set a path below.'|t('daemon', {dir: storageDir}) }}</p>
 
-    <ul class="bullets doom-wad-list">
+    <ul class="bullets daemon-wad-list">
         {% for path in found %}
             <li><code>{{ path }}</code></li>
         {% endfor %}
     </ul>
 {% else %}
     <p class="light">
-        {{ 'No WADs found yet. Freedoom is a free, BSD licensed replacement for the id WADs, and it is all this needs to run.'|t('doom') }}
+        {{ 'No WADs found yet. Freedoom is a free, BSD licensed replacement for the id WADs, and it is all this needs to run.'|t('daemon') }}
     </p>
 {% endif %}
 
 {# Hooked by class, not id. This template's output is wrapped in
-   View::namespaceInputs(), which rewrites ids (doom-fetch becomes
-   settings-doom-fetch) but leaves classes alone, while the JS registered by
+   View::namespaceInputs(), which rewrites ids (daemon-fetch becomes
+   settings-daemon-fetch) but leaves classes alone, while the JS registered by
    {% js %} is not namespaced at all. An id selector here silently matches
    nothing. #}
-<div class="doom-fetch">
+<div class="daemon-fetch">
     <div class="buttons">
-        <button type="button" class="btn doom-fetch-btn" data-icon="download">
-            {{ found ? 'Download Freedoom again'|t('doom') : 'Download Freedoom'|t('doom') }}
+        <button type="button" class="btn daemon-fetch-btn" data-icon="download">
+            {{ found ? 'Download Freedoom again'|t('daemon') : 'Download Freedoom'|t('daemon') }}
         </button>
     </div>
 
-    <div class="doom-fetch-progress"></div>
+    <div class="daemon-fetch-progress"></div>
 
-    <p class="doom-fetch-status light"></p>
+    <p class="daemon-fetch-status light"></p>
 </div>
 
 <hr>
 
 {{ forms.autosuggestField({
-    label: 'WAD path'|t('doom'),
-    instructions: 'Load a WAD from somewhere else instead. An absolute path, an @alias, or a $ENVIRONMENT_VARIABLE. Leave this empty to use the first WAD found in {dir}.'|t('doom', {dir: storageDir}),
+    label: 'WAD path'|t('daemon'),
+    instructions: 'Load a WAD from somewhere else instead. An absolute path, an @alias, or a $ENVIRONMENT_VARIABLE. Leave this empty to use the first WAD found in {dir}.'|t('daemon', {dir: storageDir}),
     id: 'wadPath',
     name: 'wadPath',
     suggestEnvVars: true,
@@ -58,8 +58,8 @@
 <hr>
 
 {{ forms.lightswitchField({
-    label: 'Pointer lock'|t('doom'),
-    instructions: 'Capture the mouse for mouselook when the canvas is clicked. Turn this off for keyboard-only play.'|t('doom'),
+    label: 'Pointer lock'|t('daemon'),
+    instructions: 'Capture the mouse for mouselook when the canvas is clicked. Turn this off for keyboard-only play.'|t('daemon'),
     id: 'pointerLock',
     name: 'pointerLock',
     on: settings.pointerLock,
@@ -69,16 +69,16 @@
 {% css %}
     /* Only when it leads the pane. If the engine warning is showing, the
        heading is no longer first and wants its normal spacing back. */
-    .doom-heading:first-child { margin-top: 0; }
-    .doom-wad-list { margin-top: 8px; }
-    .doom-fetch { margin-top: 20px; }
-    .doom-fetch .buttons { margin-top: 0; }
-    .doom-fetch .doom-fetch-progress { max-width: 380px; }
-    .doom-fetch .doom-fetch-status { margin-top: 8px; }
-    .doom-fetch .doom-fetch-status:empty { display: none; }
-    .doom-fetch .doom-fetch-status.error { color: var(--error-color); }
+    .daemon-heading:first-child { margin-top: 0; }
+    .daemon-wad-list { margin-top: 8px; }
+    .daemon-fetch { margin-top: 20px; }
+    .daemon-fetch .buttons { margin-top: 0; }
+    .daemon-fetch .daemon-fetch-progress { max-width: 380px; }
+    .daemon-fetch .daemon-fetch-status { margin-top: 8px; }
+    .daemon-fetch .daemon-fetch-status:empty { display: none; }
+    .daemon-fetch .daemon-fetch-status.error { color: var(--error-color); }
 {% endcss %}
 
 {% js %}
-    new Craft.DoomWadDownloader('.doom-fetch');
+    new Craft.DaemonWadDownloader('.daemon-fetch');
 {% endjs %}

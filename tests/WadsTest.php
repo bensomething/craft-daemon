@@ -1,8 +1,8 @@
 <?php
 
-namespace bensomething\doom\tests;
+namespace bensomething\daemon\tests;
 
-use bensomething\doom\services\Wads;
+use bensomething\daemon\services\Wads;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,7 +15,7 @@ class WadsTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->dir = sys_get_temp_dir() . '/craft-doom-tests-' . bin2hex(random_bytes(6));
+        $this->dir = sys_get_temp_dir() . '/craft-daemon-tests-' . bin2hex(random_bytes(6));
         mkdir($this->dir);
     }
 

@@ -24,4 +24,4 @@ SOFTWARE.
 
 The MIT license above covers the PHP, Twig, CSS and JavaScript written for this
 plugin. It does not cover the compiled engine artefacts in
-`src/web/assets/doom/dist/engine/`, which are GPL-2.0-or-later. See NOTICE.md.
+`src/web/assets/daemon/dist/engine/`, which are GPL-2.0-or-later. See NOTICE.md.

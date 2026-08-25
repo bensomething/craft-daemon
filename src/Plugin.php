@@ -1,12 +1,12 @@
 <?php
 
-namespace bensomething\doom;
+namespace bensomething\daemon;
 
-use bensomething\doom\controllers\PlayController;
-use bensomething\doom\models\Settings;
-use bensomething\doom\services\Engine;
-use bensomething\doom\services\Wads;
-use bensomething\doom\web\assets\settings\SettingsAsset;
+use bensomething\daemon\controllers\PlayController;
+use bensomething\daemon\models\Settings;
+use bensomething\daemon\services\Engine;
+use bensomething\daemon\services\Wads;
+use bensomething\daemon\web\assets\settings\SettingsAsset;
 use Craft;
 use craft\base\Model;
 use craft\events\RegisterUrlRulesEvent;
@@ -16,10 +16,9 @@ use craft\web\UrlManager;
 use yii\base\Event;
 
 /**
- * Doom: an id Software shareware-era first person shooter, running as a
- * control panel section.
+ * Daemon: a Doom engine running as a control panel section.
  *
- * The PHP here is MIT. The compiled engine under src/web/assets/doom/dist/engine
+ * The PHP here is MIT. The compiled engine under src/web/assets/daemon/dist/engine
  * is a derivative of GPL-2.0 source. See NOTICE.md.
  *
  * @property-read Engine $engine
@@ -64,7 +63,7 @@ class Plugin extends \craft\base\Plugin
     }
 
     /**
-     * Craft hides the nav item for anyone without `accessplugin-doom`, but that
+     * Craft hides the nav item for anyone without `accessplugin-daemon`, but that
      * permission is really "can this user reach the plugin at all". Playing is
      * gated separately so it can be granted on its own.
      */
@@ -97,7 +96,7 @@ class Plugin extends \craft\base\Plugin
     {
         Craft::$app->getView()->registerAssetBundle(SettingsAsset::class);
 
-        return Craft::$app->getView()->renderTemplate('doom/_settings.twig', [
+        return Craft::$app->getView()->renderTemplate('daemon/_settings.twig', [
             'settings' => $this->getSettings(),
             'wads' => $this->getWads(),
             'engine' => $this->getEngine(),
@@ -110,7 +109,7 @@ class Plugin extends \craft\base\Plugin
             UrlManager::class,
             UrlManager::EVENT_REGISTER_CP_URL_RULES,
             static function(RegisterUrlRulesEvent $event) {
-                $event->rules['doom'] = 'doom/play/index';
+                $event->rules['daemon'] = 'daemon/play/index';
             }
         );
     }
@@ -126,10 +125,10 @@ class Plugin extends \craft\base\Plugin
             UserPermissions::EVENT_REGISTER_PERMISSIONS,
             static function(RegisterUserPermissionsEvent $event) {
                 $event->permissions[] = [
-                    'heading' => Craft::t('doom', 'Doom'),
+                    'heading' => Craft::t('daemon', 'Daemon'),
                     'permissions' => [
                         PlayController::PERMISSION_PLAY => [
-                            'label' => Craft::t('doom', 'Play Doom'),
+                            'label' => Craft::t('daemon', 'Play'),
                         ],
                     ],
                 ];

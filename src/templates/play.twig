@@ -1,6 +1,6 @@
 {% extends '_layouts/cp' %}
 
-{% set title = 'Doom'|t('doom') %}
+{% set title = 'Daemon'|t('daemon') %}
 
 {% if buildInfo %}
     {% set details %}
@@ -18,36 +18,36 @@
 {% block content %}
     {% if not engineInstalled %}
         <div class="pane">
-            <p>{{ 'The engine is missing. A released copy of this plugin ships with it, so either you are working from a fresh clone (run bin/build-engine.sh) or something went wrong during install.'|t('doom') }}</p>
+            <p>{{ 'The engine is missing. A released copy of this plugin ships with it, so either you are working from a fresh clone (run bin/build-engine.sh) or something went wrong during install.'|t('daemon') }}</p>
         </div>
     {% elseif wadPath is null %}
         <div class="pane">
-            <p>{{ 'No WAD is available. Run craft doom/wad/fetch to install Freedoom, or point the plugin at a WAD you already have.'|t('doom') }}</p>
+            <p>{{ 'No WAD is available. Run craft daemon/wad/fetch to install Freedoom, or point the plugin at a WAD you already have.'|t('daemon') }}</p>
             {% if canManageSettings %}
-                <p><a class="go" href="{{ url('settings/plugins/doom') }}">{{ 'Doom settings'|t('doom') }}</a></p>
+                <p><a class="go" href="{{ url('settings/plugins/daemon') }}">{{ 'Daemon settings'|t('daemon') }}</a></p>
             {% endif %}
         </div>
     {% else %}
-        <div id="doom-frame" class="doom-frame">
+        <div id="daemon-frame" class="daemon-frame">
             {# id="canvas" is not decoration: Emscripten's canvas sizing resolves
                its target by that selector, and without it the backing store is
                never set and stays at the HTML default of 300x150, so the game
                renders a full frame into a fraction of a buffer. #}
-            <canvas id="canvas" class="doom-canvas" tabindex="-1" aria-label="{{ 'Doom'|t('doom') }}"></canvas>
+            <canvas id="canvas" class="daemon-canvas" tabindex="-1" aria-label="{{ 'Daemon'|t('daemon') }}"></canvas>
 
-            <div class="doom-overlay">
-                <button type="button" class="btn submit doom-start">{{ 'Start'|t('doom') }}</button>
-                <p class="doom-status">{{ 'Sound needs a click to start, so the game does too.'|t('doom') }}</p>
-                <p class="doom-hint">{{ 'Arrows to move, Ctrl to fire, Space to open, Esc for the menu.'|t('doom') }}</p>
+            <div class="daemon-overlay">
+                <button type="button" class="btn submit daemon-start">{{ 'Start'|t('daemon') }}</button>
+                <p class="daemon-status">{{ 'Sound needs a click to start, so the game does too.'|t('daemon') }}</p>
+                <p class="daemon-hint">{{ 'Arrows to move, Ctrl to fire, Space to open, Esc for the menu.'|t('daemon') }}</p>
             </div>
         </div>
 
         {% js %}
-            Craft.Doom.boot('#doom-frame', {
+            Craft.Daemon.boot('#daemon-frame', {
                 engineUrl: {{ engineJsUrl|json_encode|raw }},
                 wasmUrl: {{ engineWasmUrl|json_encode|raw }},
                 dataUrl: {{ engineDataUrl|json_encode|raw }},
-                wadUrl: {{ actionUrl('doom/play/wad')|json_encode|raw }},
+                wadUrl: {{ actionUrl('daemon/play/wad')|json_encode|raw }},
                 pointerLock: {{ pointerLock ? 'true' : 'false' }}
             });
         {% endjs %}
