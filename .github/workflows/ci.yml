@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+
+jobs:
+  tests:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: zip, intl, dom, mbstring
+          coverage: none
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Coding standards
+        run: composer check-cs
+
+      - name: Static analysis
+        run: composer phpstan
+
+      - name: Tests
+        run: composer test
+
+  engine:
+    name: Engine artefacts
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The compiled engine is committed, not built in CI (an Emscripten build
+      # takes minutes and the artefacts only change when the pin moves). What
+      # CI checks is that whatever is committed is internally consistent.
+      - name: Check engine provenance
+        run: |
+          dir=src/web/assets/doom/dist/engine
+
+          if [ ! -f "$dir/websockets-doom.wasm" ]; then
+            echo "No engine committed yet. Skipping."
+            exit 0
+          fi
+
+          for f in websockets-doom.js BUILD.json; do
+            if [ ! -f "$dir/$f" ]; then
+              echo "::error::$dir/$f is missing, but the .wasm is present."
+              exit 1
+            fi
+          done
+
+          committed=$(python3 -c "import json;print(json.load(open('$dir/BUILD.json'))['commit'])")
+          pinned=$(grep -oP 'REPO_COMMIT="\K[0-9a-f]+' bin/build-engine.sh)
+
+          if [ "$committed" != "$pinned" ]; then
+            echo "::error::BUILD.json records $committed but bin/build-engine.sh pins $pinned."
+            exit 1
+          fi
+
+          echo "Engine built from $committed."

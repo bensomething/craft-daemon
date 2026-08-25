@@ -1,0 +1,50 @@
+{% extends '_layouts/cp' %}
+
+{% set title = 'Doom'|t('doom') %}
+
+{% if buildInfo %}
+    {% set details %}
+        <div class="meta read-only">
+            {% for key, value in buildInfo %}
+                <div class="data">
+                    <div class="heading"><span>{{ key }}</span></div>
+                    <div class="value"><code>{{ value }}</code></div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endset %}
+{% endif %}
+
+{% block content %}
+    {% if not engineInstalled %}
+        <div class="pane">
+            <p>{{ 'The engine is missing. A released copy of this plugin ships with it, so either you are working from a fresh clone (run bin/build-engine.sh) or something went wrong during install.'|t('doom') }}</p>
+        </div>
+    {% elseif wadPath is null %}
+        <div class="pane">
+            <p>{{ 'No WAD is available. Run craft doom/wad/fetch to install Freedoom, or point the plugin at a WAD you already have.'|t('doom') }}</p>
+            {% if canManageSettings %}
+                <p><a class="go" href="{{ url('settings/plugins/doom') }}">{{ 'Doom settings'|t('doom') }}</a></p>
+            {% endif %}
+        </div>
+    {% else %}
+        <div id="doom-frame" class="doom-frame">
+            <canvas class="doom-canvas" tabindex="-1" aria-label="{{ 'Doom'|t('doom') }}"></canvas>
+
+            <div class="doom-overlay">
+                <button type="button" class="btn submit doom-start">{{ 'Start'|t('doom') }}</button>
+                <p class="doom-status">{{ 'Sound needs a click to start, so the game does too.'|t('doom') }}</p>
+                <p class="doom-hint">{{ 'Arrows to move, Ctrl to fire, Space to open, Esc for the menu.'|t('doom') }}</p>
+            </div>
+        </div>
+
+        {% js %}
+            Craft.Doom.boot('#doom-frame', {
+                engineUrl: {{ (engineUrl ~ '/' ~ engineJs)|json_encode|raw }},
+                wasmUrl: {{ (engineUrl ~ '/' ~ engineWasm)|json_encode|raw }},
+                wadUrl: {{ actionUrl('doom/play/wad')|json_encode|raw }},
+                pointerLock: {{ pointerLock ? 'true' : 'false' }}
+            });
+        {% endjs %}
+    {% endif %}
+{% endblock %}

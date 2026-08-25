@@ -1,0 +1,50 @@
+{% import '_includes/forms.twig' as forms %}
+
+{% if not engine.isInstalled() %}
+    <p class="warning">
+        {{ 'The engine is missing from this install, so the section will not run. See the plugin README.'|t('doom') }}
+    </p>
+{% endif %}
+
+{{ forms.autosuggestField({
+    label: 'WAD path'|t('doom'),
+    instructions: 'An absolute path, an @alias, or a $ENVIRONMENT_VARIABLE pointing at the WAD to load. Leave this empty to use the first WAD found in {dir}.'|t('doom', {dir: wads.getStorageDir()}),
+    id: 'wadPath',
+    name: 'wadPath',
+    suggestEnvVars: true,
+    suggestAliases: true,
+    value: settings.wadPath,
+    errors: settings.getErrors('wadPath'),
+}) }}
+
+{{ forms.textField({
+    label: 'Nav label'|t('doom'),
+    instructions: 'What the control panel nav item is called.'|t('doom'),
+    id: 'navLabel',
+    name: 'navLabel',
+    value: settings.navLabel,
+    errors: settings.getErrors('navLabel'),
+}) }}
+
+{{ forms.lightswitchField({
+    label: 'Pointer lock'|t('doom'),
+    instructions: 'Capture the mouse for mouselook when the canvas is clicked. Turn this off for keyboard-only play.'|t('doom'),
+    id: 'pointerLock',
+    name: 'pointerLock',
+    on: settings.pointerLock,
+    errors: settings.getErrors('pointerLock'),
+}) }}
+
+{% set found = wads.getStoredWads() %}
+{% if found %}
+    <h2>{{ 'Available WADs'|t('doom') }}</h2>
+    <ul class="bullets">
+        {% for path in found %}
+            <li><code>{{ path }}</code></li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p class="light">
+        {{ 'No WADs found. Run craft doom/wad/fetch to install Freedoom.'|t('doom') }}
+    </p>
+{% endif %}

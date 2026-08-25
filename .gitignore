@@ -1,0 +1,11 @@
+/vendor
+composer.lock
+.DS_Store
+.idea
+.phpunit.result.cache
+/.phpunit.cache
+
+# Emscripten build tree (see bin/build-engine.sh). The compiled artefacts in
+# src/web/assets/doom/dist/engine/ ARE committed; the toolchain isn't.
+/build
+/emsdk
