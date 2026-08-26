@@ -1,6 +1,6 @@
 # Release Notes for Daemon
 
-## Unreleased
+## 1.0.0-beta.1 - 2026-08-26
 
 ### Added
 - Initial release: a control panel section running a WebAssembly build of PrBoom+ on a canvas, behind its own `daemon:play` permission.
