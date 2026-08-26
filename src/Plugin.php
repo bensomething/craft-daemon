@@ -14,6 +14,7 @@ use craft\base\Model;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\events\RegisterUserPermissionsEvent;
+use craft\services\Gc;
 use craft\services\UserPermissions;
 use craft\services\Utilities;
 use craft\web\UrlManager;
@@ -58,6 +59,7 @@ class Plugin extends \craft\base\Plugin
         // list too, and a utility missing from it is a permission that cannot
         // be granted.
         $this->registerUtilities();
+        $this->registerGarbageCollection();
 
         if (Craft::$app->getRequest()->getIsCpRequest()) {
             $this->registerCpRoutes();
@@ -134,6 +136,23 @@ class Plugin extends \craft\base\Plugin
             Utilities::EVENT_REGISTER_UTILITIES,
             static function(RegisterComponentTypesEvent $event) {
                 $event->types[] = DownloadWads::class;
+            }
+        );
+    }
+
+    /**
+     * Saves are filed under a user id, and a deleted user's directory would
+     * otherwise sit there for good. Craft's own garbage collection is where
+     * this belongs: it already runs on a schedule, after the soft deleted
+     * users it is clearing out have really gone.
+     */
+    private function registerGarbageCollection(): void
+    {
+        Event::on(
+            Gc::class,
+            Gc::EVENT_RUN,
+            function() {
+                $this->getSaves()->deleteOrphaned();
             }
         );
     }

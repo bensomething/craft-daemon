@@ -1,6 +1,9 @@
 # Release Notes for Daemon
 
-## Unreleased
+## 1.0.0-beta.3 - 2026-08-26
+
+### Added
+- A user's savegames are deleted along with the user. They are filed under a user id, and nothing on disk knew when that user went away, so the directory outlived them. Swept during Craft's own garbage collection rather than hooked to the delete, because users are soft deleted first and can be restored.
 
 ### Changed
 - The WAD downloads moved from the plugin's settings screen to a **Daemon WADs** utility, with a link in their place. Craft renders plugin settings through `Html::disableInputs()` when `allowAdminChanges` is off, which disabled both buttons and discarded the JavaScript driving them, so on a production install they did nothing at all. Utilities are not subject to that setting. The console commands were never affected.

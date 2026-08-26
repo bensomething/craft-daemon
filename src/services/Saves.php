@@ -4,6 +4,7 @@ namespace bensomething\daemon\services;
 
 use bensomething\daemon\models\Save;
 use Craft;
+use craft\elements\User;
 use craft\helpers\FileHelper;
 use RuntimeException;
 use yii\base\Component;
@@ -49,6 +50,49 @@ class Saves extends Component
     public function getStorageDir(): string
     {
         return Craft::getAlias('@storage/daemon/saves');
+    }
+
+    /**
+     * Deletes the saves of users who no longer exist.
+     *
+     * Saves are filed under a user id, and nothing on disk knows when that user
+     * goes away, so the directory would outlive them for good. Swept rather
+     * than hooked to a delete event: users are soft deleted first and can be
+     * restored, so acting on the delete would take the saves of somebody who
+     * came back, and a sweep also clears orphans left by any route.
+     *
+     * @return int How many users' saves were removed.
+     * @throws \yii\base\ErrorException if a directory can't be deleted.
+     */
+    public function deleteOrphaned(): int
+    {
+        $root = $this->getStorageDir();
+
+        if (!is_dir($root)) {
+            return 0;
+        }
+
+        $removed = 0;
+
+        foreach ((array)glob($root . '/*', GLOB_ONLYDIR) as $dir) {
+            $userId = basename($dir);
+
+            if (!ctype_digit($userId)) {
+                continue;
+            }
+
+            // Any status, including suspended and inactive: only a user who is
+            // really gone should lose their saves. A soft deleted one is still
+            // a row, so they keep theirs until Craft clears them out for good.
+            if (User::find()->id((int)$userId)->status(null)->exists()) {
+                continue;
+            }
+
+            FileHelper::removeDirectory($dir);
+            $removed++;
+        }
+
+        return $removed;
     }
 
     /**

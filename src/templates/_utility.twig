@@ -38,8 +38,19 @@
     <p class="daemon-fetch-status light"></p>
 </div>
 
+{# raw, so the link survives. Everything interpolated is either built by
+   tag(), which escapes its own text, or escaped on the way in. #}
+{% set storageDir = tag('code', {text: wads.getStorageDir()}) %}
+{% set settingsLink = tag('a', {
+    href: url('settings/plugins/daemon'),
+    text: 'settings screen'|t('daemon'),
+}) %}
+
 <p class="light daemon-fetch-note">
-    {{ 'Both land in {dir}. Names and the default game are on the plugin\'s settings screen.'|t('daemon', {dir: wads.getStorageDir()}) }}
+    {{ 'Both land in {dir}. Names and the default game are on the plugin\'s {link}.'|t('daemon', {
+        dir: storageDir,
+        link: settingsLink,
+    })|raw }}
 </p>
 
 {% css %}
