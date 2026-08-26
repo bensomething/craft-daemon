@@ -41,3 +41,41 @@
 <p class="light daemon-fetch-note">
     {{ 'Both land in {dir}. Names and the default game are on the plugin\'s settings screen.'|t('daemon', {dir: wads.getStorageDir()}) }}
 </p>
+
+{% css %}
+    /* The button and its progress on one row. The bar only takes space while
+       there is something to report, so an idle screen is just a button. */
+    .daemon-fetch {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    /* margin-block, not margin-top: .buttons sets 24px on both sides, and
+       zeroing only the top leaves it the tallest thing in the row at 54px.
+       align-items: center then centres the bar and the status against that,
+       while the buttons themselves sit in the top 30px of it, so the bar
+       reads as 12px low. */
+    .daemon-fetch .buttons { margin-block: 0; }
+    .daemon-fetch .daemon-fetch-progress { display: none; flex: 1 1 160px; max-width: 320px; }
+    /* Craft's progress bar is absolutely positioned at 20%/60% of whatever
+       container it lands in, which is right for an element index and wrong for
+       a flex row: it leaves the flow entirely and sizes itself against the
+       pane. Put it back in the flow before giving it a width. */
+    .daemon-fetch .daemon-fetch-progress .progressbar {
+        position: relative;
+        inset-inline-start: 0;
+        width: 100%;
+        margin: 0;
+    }
+    .daemon-fetch--busy .daemon-fetch-progress { display: block; }
+    .daemon-fetch .daemon-fetch-status { margin: 0; }
+    .daemon-fetch .daemon-fetch-status:empty { display: none; }
+    .daemon-fetch .daemon-fetch-status.error { color: var(--error-color); }
+    .daemon-fetch-note { margin-top: 24px; }
+{% endcss %}
+
+{% js %}
+    new Craft.DaemonWadDownloader('.daemon-fetch');
+{% endjs %}
