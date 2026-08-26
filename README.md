@@ -1,10 +1,7 @@
-<p align="center"><img src="src/icon.svg" width="96" alt="Doom"></p>
+<img src="src/icon.svg" width="96" alt="Doom">
 
-<h1 align="center">Daemon</h1>
-
-<p align="center">A Doom engine, in the Craft control panel. For some reason.</p>
-
----
+# Daemon
+**A Doom engine, in the Craft control panel. For some reason. **
 
 A control panel section that runs a WebAssembly build of PrBoom+ on a canvas, behind its own permission, playing a WAD you supply. A joke with a test suite.
 
