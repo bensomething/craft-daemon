@@ -1,7 +1,7 @@
 <img src="src/icon.svg" width="96" alt="Doom">
 
 # Daemon
-**A Doom engine, in the Craft control panel. For some reason. **
+**A Doom engine, in the Craft control panel. For some reason.**
 
 A control panel section that runs a WebAssembly build of PrBoom+ on a canvas, behind its own permission, playing a WAD you supply. A joke with a test suite.
 
@@ -54,7 +54,7 @@ With more than one WAD, the last breadcrumb becomes a menu of them. The items ar
 
 ## Playing
 
-<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> moves, the arrows turn, <kbd>Ctrl</kbd> fires, <kbd>Space</kbd> opens, <kbd>Esc</kbd> is the menu. The controls are listed on the screen itself. A keyboard is required: the engine reads keys and mouse buttons only, so a touchscreen can fire the weapon and do nothing else.
+<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> moves, the <kbd>←</kbd><kbd>→</kbd> turn, <kbd>Ctrl</kbd> fires, <kbd>Space</kbd> opens, <kbd>Esc</kbd> is the menu. The controls are listed on the screen itself. A keyboard is required: the engine reads keys and mouse buttons only, so a touchscreen can fire the weapon and do nothing else.
 
 ## Savegames
 
