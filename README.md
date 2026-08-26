@@ -2,11 +2,11 @@
 
 <h1 align="center">Daemon</h1>
 
-<p align="center">A Doom engine, in the Craft control panel. An explicit novelty, engineered like it isn't.</p>
+<p align="center">A Doom engine, in the Craft control panel. For some reason.</p>
 
 ---
 
-A control panel section that runs a WebAssembly build of PrBoom+ on a canvas, behind its own permission, playing a WAD you supply. A joke with a test suite: not pretending to be useful, only pretending to be well built, and not pretending about that.
+A control panel section that runs a WebAssembly build of PrBoom+ on a canvas, behind its own permission, playing a WAD you supply. A joke with a test suite.
 
 ## Requirements
 
