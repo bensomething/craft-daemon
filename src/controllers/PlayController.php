@@ -13,8 +13,8 @@ use yii\web\Response;
 class PlayController extends Controller
 {
     /**
-     * The permission handle. Declared here, on the controller that enforces it,
-     * so registration, the gate and the nav check can't drift apart.
+     * The permission handle, declared on the controller that enforces it so
+     * registration, the gate and the nav check can't drift apart.
      */
     public const PERMISSION_PLAY = 'daemon:play';
 
@@ -89,13 +89,10 @@ class PlayController extends Controller
     /**
      * Streams the selected WAD.
      *
-     * WADs live under @storage, not the web root, so this action is the only
-     * way the bytes reach a browser. That keeps the permission check on the
-     * content itself rather than on the page that happens to link to it.
-     *
-     * The `wad` param is a key, not a path. It is resolved by looking it up in
-     * the list the service builds from the filesystem, so nothing a request
-     * sends is ever used to address a file.
+     * WADs live under @storage, so this action is the only way the bytes reach a
+     * browser, which keeps the permission check on the content itself. The `wad`
+     * param is a key, resolved by looking it up in the list the service builds, so
+     * nothing a request sends addresses a file.
      *
      * @throws NotFoundHttpException if no valid WAD is configured.
      */

@@ -10,26 +10,22 @@ use Throwable;
 use yii\web\Response;
 
 /**
- * Fetching Freedoom from the settings screen, with progress.
- *
- * The console command does the same job. This exists because a settings screen
- * that says "run this in a terminal" is a settings screen that hasn't finished.
+ * Downloading WADs from the settings screen, with progress. The console
+ * commands do the same job; a settings screen that says "run this in a
+ * terminal" is a settings screen that has not finished.
  */
 class WadController extends Controller
 {
     /**
-     * Where download progress is parked for the polling action to read.
-     *
-     * Progress can't be returned from the request doing the work, so it goes
-     * through the cache. It's a singleton because this is an admin-only action
-     * on a novelty plugin; two admins racing to download the same file is not a
-     * scenario worth engineering around.
+     * Where download progress is parked for the polling action to read, since it
+     * cannot be returned from the request doing the work. A singleton: two admins
+     * racing to download the same file is not worth engineering around.
      */
     private const PROGRESS_KEY = 'daemon.wad.progress';
 
     /**
-     * Writing progress on every Guzzle callback would hammer the cache for no
-     * visible benefit, so only whole-percent changes are stored.
+     * Only whole-percent changes are stored, so the cache is not hammered for no
+     * visible benefit.
      */
     private const PROGRESS_STEP = 1;
 
@@ -79,8 +75,8 @@ class WadController extends Controller
     /**
      * Runs one download, publishing progress for actionProgress() to read.
      *
-     * @param callable $fetch Given the progress callback, does the work and
-     * returns the paths written.
+     * @param callable $fetch Given the progress callback, does the work and returns
+     * the paths written.
      * @param string $message What to tell the browser on success.
      * @throws \yii\web\BadRequestHttpException if the request isn't a POST.
      */
@@ -140,19 +136,14 @@ class WadController extends Controller
     }
 
     /**
-     * Re-renders the WAD list for the settings screen.
+     * Re-renders the WAD list so a finished download can show its result without
+     * reloading. The screen is a full page form carrying data-confirm-unload, so a
+     * reload mid-edit would discard names being typed or stop to ask about them.
      *
-     * So a finished download can show its result without reloading the page.
-     * The settings screen is a full page form carrying data-confirm-unload, so
-     * a reload part way through editing either discards names the admin has
-     * typed or stops to ask them about it, and neither is a reasonable answer
-     * to pressing Download.
-     *
-     * The `settings` namespace is not decoration. Craft renders plugin
-     * settings inside View::namespaceInputs() with that namespace, so the
-     * inputs on the page are named settings[wadNames][...]. Rendering the same
-     * template on its own produces wadNames[...] instead, which posts to
-     * nothing and loses every name on the next save.
+     * The `settings` namespace is not decoration: Craft renders plugin settings
+     * inside View::namespaceInputs() with it, so the inputs are named
+     * settings[wadNames][...]. Rendered alone the template produces wadNames[...],
+     * which posts to nothing and loses every name on the next save.
      *
      * @throws \yii\base\Exception if the template can't be rendered.
      * @throws \yii\web\BadRequestHttpException if the request doesn't accept JSON.

@@ -11,9 +11,7 @@
 
 <h2 class="daemon-heading">{{ 'WADs'|t('daemon') }}</h2>
 
-{# Swapped in place after a download. Hooked by class rather than id for the
-   same reason as the fetch container below: ids in here are namespaced, the
-   JS is not. #}
+{# Swapped in place after a download. By class, not id, for the reason below. #}
 <div class="daemon-wad-list">
     {% include 'daemon/_wads' with {
         available: available,
@@ -21,43 +19,38 @@
     } only %}
 </div>
 
-{# Hooked by class, not id. This template's output is wrapped in
-   View::namespaceInputs(), which rewrites ids (daemon-fetch becomes
-   settings-daemon-fetch) but leaves classes alone, while the JS registered by
-   {% js %} is not namespaced at all. An id selector here silently matches
-   nothing. #}
+{# Hooked by class, not id. This output is wrapped in View::namespaceInputs(),
+   which rewrites ids but leaves classes alone, while the JS is not namespaced
+   at all. An id selector here silently matches nothing. #}
 <div class="daemon-fetch">
     <div class="buttons">
-        {# Keyed off storage, not off everything found: a WAD sitting in some
-           other search directory is no reason to say the download already
-           happened, and it is this directory the button fills. Named too,
-           rather than "is anything stored": with only Doom in storage the
-           Freedoom button would otherwise offer to fetch it again. #}
+        {# Keyed off storage, which is what these buttons fill, and off the named
+           game: with only Doom stored, "is anything stored" would have the
+           Freedoom button offering to fetch it again. #}
         <button type="button" class="btn daemon-fetch-btn" data-icon="download"
                 data-daemon-action="daemon/wad/shareware"
+                data-daemon-game="Doom"
                 data-daemon-again-label="{{ 'Re-download Doom'|t('daemon') }}">
             {{ wads.hasShareware() ? 'Re-download Doom'|t('daemon') : 'Download Doom'|t('daemon') }}
         </button>
 
         <button type="button" class="btn daemon-fetch-btn" data-icon="download"
                 data-daemon-action="daemon/wad/fetch"
+                data-daemon-game="Freedoom"
                 data-daemon-again-label="{{ 'Re-download Freedoom'|t('daemon') }}">
             {{ wads.hasFreedoom() ? 'Re-download Freedoom'|t('daemon') : 'Download Freedoom'|t('daemon') }}
         </button>
     </div>
 
-    {# One bar and one status line for both buttons, which is also what keeps
-       two downloads from running at once: the downloader has a single running
-       flag, so whichever button is pressed first owns the row until it is
-       finished. #}
+    {# One bar and status line for both buttons, which is also what keeps two
+       downloads from running at once. #}
     <div class="daemon-fetch-progress"></div>
 
     <p class="daemon-fetch-status light"></p>
 </div>
 
-{# Named rather than quietly skipped. A WAD sitting in a search directory is
-   somebody expecting it to show up, and leaving them to conclude the plugin
-   cannot see the file is worse than saying why it is not on offer. #}
+{# Named rather than quietly skipped: a WAD in a search directory is somebody
+   expecting it to show up. #}
 {% set unsupported = wads.getUnsupportedWads() %}
 
 {% if unsupported %}

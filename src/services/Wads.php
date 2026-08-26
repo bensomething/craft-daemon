@@ -14,16 +14,10 @@ use ZipArchive;
 /**
  * Locating, validating and acquiring WAD files.
  *
- * No WAD ships in this package. id's shareware WAD can't be redistributed
+ * No WAD ships in this package: the shareware IWAD cannot be redistributed
  * inside a Composer package on terms anyone would want to defend, and Freedoom
- * (which could be, it's BSD) is 28.8MB per IWAD landing in every vendor/ on
- * every deploy, which is a lot to inflict on a novelty.
- *
- * So WADs are found rather than shipped, in two directories, searched in this
- * order:
- *
- *   1. A directory named in the plugin settings, if there is one.
- *   2. storage/daemon/, which is where `daemon/wad/fetch` puts things.
+ * is 28.8MB per IWAD. So they are found rather than shipped, in the configured
+ * directory first, then storage/daemon/.
  */
 class Wads extends Component
 {
@@ -32,66 +26,47 @@ class Wads extends Component
     public const FREEDOOM_URL = 'https://github.com/freedoom/freedoom/releases/download/v0.13.0/freedoom-0.13.0.zip';
 
     /**
-     * Pinned rather than read from the release's CHECKSUM file: a checksum
-     * fetched from the same host as the artefact only proves the two agree.
-     * Taken from the PGP-signed freedoom-0.13.0-CHECKSUM.
+     * Pinned rather than read from the release's CHECKSUM file: a checksum fetched
+     * from the same host as the artefact only proves the two agree. Taken from the
+     * PGP-signed freedoom-0.13.0-CHECKSUM.
      */
     public const FREEDOOM_SHA256 = '3f9b264f3e3ce503b4fb7f6bdcb1f419d93c7b546f4df3e874dd878db9688f59';
 
     /**
-     * Where the Doom shareware IWAD is fetched from.
-     *
-     * Doomworld rather than id: id's own distribution is a DOS self-extracting
-     * installer (DEICE.EXE plus split archives) that nothing here can unpack.
-     * The mirror is not trusted, which is the point of the hash below.
+     * Where the shareware IWAD is fetched from. Doomworld rather than id: id's own
+     * distribution is a DOS self-extracting installer nothing here can unpack. The
+     * mirror is not trusted, which is the point of the hash below.
      */
     public const SHAREWARE_URL = 'https://www.doomworld.com/3ddownloads/ports/shareware_doom_iwad.zip';
 
     /**
-     * SHA-256 of the shareware DOOM1.WAD inside that archive.
-     *
-     * Derived from a download whose MD5 matched the value Debian's
-     * game-data-packager publishes for shareware v1.9
-     * (f0cefca49926d00903cf57551d901abe), which is maintained independently of
-     * whoever is serving the bytes. Verifying the WAD rather than the archive
-     * checks the thing that matters: repackage the zip however you like, the
-     * game data still has to be the game data.
+     * SHA-256 of the shareware DOOM1.WAD inside that archive, from a download whose
+     * MD5 matched the value Debian's game-data-packager publishes for v1.9.
+     * Verifying the WAD rather than the archive checks the thing that matters.
      */
     public const SHAREWARE_SHA256 = '1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771';
 
     /**
-     * What the shareware WAD is called once installed. The archive's own name
-     * is uppercase, and PrBoom reads the filename when it works out which game
-     * it is looking at, so it is normalised on the way in.
+     * What the shareware WAD is called once installed. PrBoom reads the filename
+     * when working out which game it is looking at, so it is normalised on the way in.
      */
     public const SHAREWARE_FILENAME = 'doom1.wad';
 
-    /**
-     * The four bytes an IWAD opens with. An IWAD is a complete game: it holds
-     * the maps, the textures, the sounds, everything.
-     */
+    /** The four bytes an IWAD opens with. An IWAD is a complete game. */
     public const MAGIC_IWAD = 'IWAD';
 
     /**
-     * The four bytes a PWAD opens with. A PWAD is a patch, loaded on top of an
-     * IWAD, and it is not a game on its own. Passing one to -iwad gets you a
-     * warning followed by a crash the moment the engine looks for a texture
-     * that isn't there.
+     * The four bytes a PWAD opens with. A patch, not a game: passing one to -iwad
+     * gets a warning followed by a crash on the first missing texture.
      */
     public const MAGIC_PWAD = 'PWAD';
 
-    /**
-     * The four bytes every WAD opens with. Anything else is not a WAD, however
-     * confidently it is named one.
-     */
+    /** The four bytes every WAD opens with. */
     private const MAGIC = [self::MAGIC_IWAD, self::MAGIC_PWAD];
 
     /**
-     * The IWADs this engine plays, by filename.
-     *
-     * Anything not listed here still loads. It just gets its filename in the
-     * menu, because guessing a title from a filename is how you end up calling
-     * someone's WAD "Doom2 Final REAL v3".
+     * The IWADs this engine plays, by filename. Anything not listed still loads, it
+     * just gets its filename in the menu.
      */
     private const KNOWN_WADS = [
         'doom.wad' => 'Doom',
@@ -108,27 +83,16 @@ class Wads extends Component
     ];
 
     /**
-     * The Craft system icon shown beside every game in the menu.
-     *
-     * One icon for all of them: the menu distinguishes games by name, and an
-     * icon that varies without carrying information is just noise with a
-     * gradient on it.
+     * The Craft system icon shown beside every game in the menu. One for all of
+     * them: an icon that varies without carrying information is noise.
      */
     /**
      * IWADs belonging to games this engine does not implement.
      *
-     * These are genuine IWADs and pass every structural check there is, because
-     * Raven and Rogue built their games on the Doom engine and shipped the same
-     * container. PrBoom+ implements Doom's game logic and nothing else, so
-     * handing it one of these gets a broken game or a crash rather than
-     * Heretic. Better to leave them out of the menu than to offer a game that
-     * cannot start.
-     *
-     * Matched by filename, which is the same trust this service already places
-     * in a name to decide what a game is called. A renamed copy still gets
-     * through and still fails at the engine. Catching that would mean reading
-     * the lump directory for game specific entries, which is a great deal of
-     * archaeology for a file nobody renames by accident.
+     * Raven and Rogue built on the Doom engine and shipped the same container, so
+     * these pass every structural check, but PrBoom+ implements Doom's game logic
+     * alone. Matched by filename, so a renamed copy still gets through and still
+     * fails at the engine.
      */
     private const UNSUPPORTED_WADS = [
         'heretic.wad' => 'Heretic',
@@ -142,9 +106,8 @@ class Wads extends Component
     public const ICON = 'floppy-disk';
 
     /**
-     * Where fetched WADs are kept. Under @storage, so it is outside the web
-     * root: WAD bytes reach the browser through a permission-gated controller
-     * action, never as a static file.
+     * Where fetched WADs are kept. Under @storage, outside the web root: WAD bytes
+     * reach the browser through a permission-gated action, never as a static file.
      */
     public function getStorageDir(): string
     {
@@ -152,9 +115,8 @@ class Wads extends Component
     }
 
     /**
-     * Every directory searched for WADs, in the order they are searched: the
-     * configured one first, so an admin who points the plugin at their own
-     * collection gets their own default, then storage.
+     * Every directory searched, in order: the configured one first, so an admin
+     * pointing at their own collection gets their own default, then storage.
      *
      * @return string[]
      */
@@ -173,13 +135,9 @@ class Wads extends Component
     }
 
     /**
-     * Every game that can be played, in the order the selector lists them.
-     *
-     * IWADs only. A PWAD is a patch loaded on top of a game, not a game, and
-     * offering one as a choice would offer a crash.
-     *
-     * A search directory that doesn't exist contributes nothing and is not an
-     * error: the setting can hold a $VAR that only some environments define.
+     * Every game that can be played, in the order the selector lists them. IWADs
+     * only. A search directory that does not exist contributes nothing and is not
+     * an error: the setting can hold a $VAR only some environments define.
      *
      * @return Wad[] Keyed by Wad::$key.
      */
@@ -192,9 +150,8 @@ class Wads extends Component
 
         foreach ($this->getSearchDirs() as $dir) {
             foreach ($this->findWads($dir, self::MAGIC_IWAD) as $path) {
-                // The configured directory can be the storage directory, or a
-                // symlink to it, and the same WAD twice would be two menu
-                // items that do the same thing.
+                // The configured directory can be storage, or a symlink to it,
+                // and the same WAD twice would be two identical menu items.
                 $real = realpath($path) ?: $path;
 
                 if (isset($seen[$real])) {
@@ -220,14 +177,10 @@ class Wads extends Component
             }
         }
 
-        // The chosen default is moved to the front rather than flagged in
-        // place, so "the default" stays "the first one" everywhere that reads
-        // this list: the Game menu, the console, getDefaultWad(). A key naming
-        // nothing here is ignored, because the same setting is deployed to
-        // environments holding a different set of WADs.
-        //
-        // Union rather than a sort: keys from the left operand win, so the
-        // duplicate further down is dropped and the rest keep their order.
+        // Moved to the front rather than flagged, so "the default" stays "the
+        // first one" everywhere that reads this list. A key naming nothing is
+        // ignored: the same setting reaches environments with other WADs.
+        // Union rather than a sort, so keys from the left win.
         if ($settings->defaultWad !== null && isset($wads[$settings->defaultWad])) {
             $wads = [$settings->defaultWad => $wads[$settings->defaultWad]] + $wads;
         }
@@ -236,11 +189,9 @@ class Wads extends Component
     }
 
     /**
-     * The WAD a request asked for, falling back to the default when the key is
-     * missing or matches nothing.
-     *
-     * Unknown keys fall back rather than 404: a bookmark that outlived the WAD
-     * it named should still give you a game.
+     * The WAD a request asked for, falling back to the default. Unknown keys fall
+     * back rather than 404: a bookmark that outlived its WAD should still give you
+     * a game.
      */
     public function getRequestedWad(?string $key): ?Wad
     {
@@ -253,10 +204,7 @@ class Wads extends Component
         return $wads === [] ? null : reset($wads);
     }
 
-    /**
-     * The WAD loaded when nothing has been asked for: whichever the settings
-     * screen marked as the default, or the first one found.
-     */
+    /** The WAD loaded when nothing has been asked for. */
     public function getDefaultWad(): ?Wad
     {
         return $this->getRequestedWad(null);
@@ -271,12 +219,8 @@ class Wads extends Component
     }
 
     /**
-     * What the plugin calls the WAD at $path on its own. Known IWADs get their
-     * real title; anything else gets its filename, which is the most honest
-     * thing left to say about it.
-     *
-     * This is the fallback, not the last word: an admin's own name from the
-     * settings screen wins over it.
+     * What the plugin calls the WAD on its own: a known IWAD's title, or its
+     * filename. A name from the settings screen wins over it.
      */
     public static function nameFor(string $path): string
     {
@@ -298,9 +242,8 @@ class Wads extends Component
     }
 
     /**
-     * Every PWAD found. These are not playable and never appear in the Game
-     * menu, but they are worth reporting: a PWAD sitting in a search directory
-     * is somebody expecting it to show up.
+     * Every PWAD found. Not playable and never in the Game menu, but worth
+     * reporting: one in a search directory is somebody expecting it to show up.
      *
      * @return string[]
      */
@@ -318,9 +261,7 @@ class Wads extends Component
     }
 
     /**
-     * Every valid WAD sitting in storage. The settings screen asks for this
-     * specifically, because that is the directory `daemon/wad/fetch` writes to
-     * and the one the Download button fills.
+     * Every valid WAD in storage, which is the directory the downloads write to.
      *
      * @return string[]
      */
@@ -330,12 +271,8 @@ class Wads extends Component
     }
 
     /**
-     * Whether the Doom shareware episode is already in storage.
-     *
-     * Matched on the filename `fetchShareware()` writes rather than on the
-     * contents, and compared without regard to case: a copy put there by hand
-     * is as likely to be DOOM1.WAD as doom1.wad, and on a case insensitive
-     * filesystem those are the same file anyway.
+     * Whether the Doom shareware episode is in storage. Matched on the filename
+     * fetchShareware() writes, without regard to case.
      */
     public function hasShareware(): bool
     {
@@ -349,11 +286,8 @@ class Wads extends Component
     }
 
     /**
-     * Whether either Freedoom IWAD is already in storage.
-     *
-     * Either, not both: the two phases are separate games and having one of
-     * them is enough to make the download a repeat. The pattern is the one
-     * `fetchFreedoom()` pulls out of the archive.
+     * Whether either Freedoom IWAD is in storage. Either, not both: having one
+     * phase makes the download a repeat.
      */
     public function hasFreedoom(): bool
     {
@@ -367,11 +301,8 @@ class Wads extends Component
     }
 
     /**
-     * Whether this is an IWAD the engine can actually run.
-     *
-     * Only ever asked of files that already carry the IWAD magic number, so
-     * the question is which game it belongs to rather than whether it is a
-     * WAD at all.
+     * Whether this is an IWAD the engine can run. Only ever asked of files already
+     * carrying the IWAD magic number.
      */
     public function isSupportedIwad(string $path): bool
     {
@@ -379,9 +310,8 @@ class Wads extends Component
     }
 
     /**
-     * Every IWAD found that belongs to another game, so the settings screen
-     * can say why a file that is plainly there is not in the menu. Silence
-     * would read as the plugin failing to find it.
+     * Every IWAD found that belongs to another game, so the settings screen can say
+     * why a file that is plainly there is not in the menu.
      *
      * @return array<string, string> Path, mapped to the game it belongs to.
      */
@@ -402,28 +332,19 @@ class Wads extends Component
         return $found;
     }
 
-    /**
-     * Whether the file at $path is readable and opens with a WAD magic number.
-     * Cheap enough to call on every request; it reads four bytes.
-     */
+    /** Whether the file opens with a WAD magic number. */
     public function isValidWad(string $path): bool
     {
         return in_array($this->readMagic($path), self::MAGIC, true);
     }
 
-    /**
-     * Whether the file at $path is a complete game rather than a patch. Only
-     * IWADs can be played on their own, so only IWADs are offered as games.
-     */
+    /** Whether the file is a complete game rather than a patch. */
     public function isIwad(string $path): bool
     {
         return $this->readMagic($path) === self::MAGIC_IWAD;
     }
 
-    /**
-     * The file's first four bytes, or null if they can't be read. Cheap enough
-     * to call on every request; it reads four bytes.
-     */
+    /** The file's first four bytes, or null if they can't be read. */
     private function readMagic(string $path): ?string
     {
         if ($path === '' || !is_file($path) || !is_readable($path)) {
@@ -443,12 +364,12 @@ class Wads extends Component
     }
 
     /**
-     * Downloads Freedoom, verifies it against the pinned checksum, and unpacks
-     * freedoom1.wad and freedoom2.wad into storage.
+     * Downloads Freedoom, verifies it against the pinned checksum, and unpacks both
+     * IWADs into storage.
      *
-     * @param callable|null $onProgress Called as ($downloadedBytes, $totalBytes)
-     * while the archive downloads. $totalBytes is 0 until the response headers
-     * land, and the callback fires very frequently: throttle in the caller.
+     * @param callable|null $onProgress Called as ($downloadedBytes, $totalBytes).
+     * $totalBytes is 0 until the response headers land, and it fires very
+     * frequently: throttle in the caller.
      * @return string[] Absolute paths of the WADs written.
      * @throws RuntimeException if the download, the checksum or the unpack fails.
      * @throws \yii\base\ErrorException if the temp directory can't be cleaned up.
@@ -482,8 +403,7 @@ class Wads extends Component
 
             $this->unzip($zipPath, $extractDir);
 
-            // The archive nests everything under freedoom-<version>/, but
-            // don't rely on that: match at the root too.
+            // The archive nests under freedoom-<version>/, but match the root too.
             $found = (array)glob($extractDir . '/{,*/}freedoom?.wad', GLOB_BRACE);
 
             if ($found === []) {
@@ -511,11 +431,9 @@ class Wads extends Component
     }
 
     /**
-     * Every valid WAD in $dir, sorted so the ordering is stable across
-     * filesystems rather than whatever readdir() felt like.
+     * Every valid WAD in the directory, sorted so the ordering is stable.
      *
-     * @param string|null $magic Restrict to one kind, MAGIC_IWAD or
-     * MAGIC_PWAD. Null accepts either.
+     * @param string|null $magic Restrict to MAGIC_IWAD or MAGIC_PWAD. Null accepts either.
      * @return string[]
      */
     private function findWads(string $dir, ?string $magic = null): array
@@ -537,10 +455,8 @@ class Wads extends Component
     }
 
     /**
-     * keyFor(), made unique against the keys already in $taken.
-     *
-     * Filenames are unique within a directory but the configured path can come
-     * from anywhere, so two WADs really can arrive with the same basename.
+     * keyFor(), made unique against $taken. The configured path can come from
+     * anywhere, so two WADs really can arrive with the same basename.
      *
      * @param Wad[] $taken
      */
@@ -560,16 +476,13 @@ class Wads extends Component
     /**
      * Downloads the Doom shareware IWAD and installs it into storage.
      *
-     * The shareware episode is not free software. id's licence allows the
-     * shareware distribution to be passed around, so this fetches it at an
-     * admin's explicit instruction, onto their own machine. It is not bundled,
-     * because a Composer package carrying id's game data is a package that is
-     * no longer wholly MIT and GPL, and every install would be redistributing
-     * it without being asked.
+     * Not free software. id's licence allows the shareware distribution to be
+     * passed around, so this fetches it at an admin's explicit instruction rather
+     * than bundling it, which would make every install a redistributor.
      *
-     * @param callable|null $onProgress Called as ($downloadedBytes, $totalBytes)
-     * while the archive downloads. $totalBytes is 0 until the response headers
-     * land, and the callback fires very frequently: throttle in the caller.
+     * @param callable|null $onProgress Called as ($downloadedBytes, $totalBytes).
+     * $totalBytes is 0 until the response headers land, and it fires very
+     * frequently: throttle in the caller.
      * @return string The absolute path of the WAD written.
      * @throws RuntimeException if the download, the checksum or the unpack fails.
      * @throws \yii\base\ErrorException if the temp directory can't be cleaned up.
@@ -624,10 +537,8 @@ class Wads extends Component
     }
 
     /**
-     * Unpacks a zip archive.
-     *
-     * Craft 5 has no unzip helper (the Craft 3 Zip helper is long gone), so
-     * this is ZipArchive directly, which is why composer.json requires ext-zip.
+     * Unpacks a zip archive. Craft 5 has no unzip helper, so this is ZipArchive
+     * directly, which is why composer.json requires ext-zip.
      *
      * @throws RuntimeException if the archive can't be opened or extracted.
      */
@@ -650,8 +561,7 @@ class Wads extends Component
     }
 
     /**
-     * Streams a URL to disk. Streamed rather than buffered because Freedoom is
-     * ~20MB and there is no reason to hold that in PHP's memory.
+     * Streams a URL to disk rather than buffering it: Freedoom is ~20MB.
      *
      * @throws RuntimeException if the request fails.
      */
@@ -664,9 +574,8 @@ class Wads extends Component
         ];
 
         if ($onProgress !== null) {
-            // Guzzle's signature is (downloadTotal, downloadedBytes, uploadTotal,
-            // uploadedBytes). Only the download half is meaningful here, and the
-            // totals arrive as 0 until the response headers do.
+            // Guzzle's signature is (downloadTotal, downloadedBytes, ...), and
+            // the totals are 0 until the response headers arrive.
             $options['progress'] = static function($downloadTotal, $downloadedBytes) use ($onProgress) {
                 $onProgress((int)$downloadedBytes, (int)$downloadTotal);
             };

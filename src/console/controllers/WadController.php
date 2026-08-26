@@ -19,12 +19,10 @@ class WadController extends Controller
     /**
      * Downloads Freedoom and installs it into storage/daemon/.
      *
-     * Freedoom is a BSD-licensed, engine-compatible replacement for the id
-     * WADs. It is fetched rather than bundled so the Composer package stays
-     * small and free of redistribution questions.
-     *
-     * The archive is verified against a checksum pinned in the plugin source
-     * before anything is written.
+     * Freedoom is a BSD-licensed, engine-compatible replacement for the id WADs,
+     * fetched rather than bundled to keep the Composer package small and free of
+     * redistribution questions. The archive is verified against a checksum pinned
+     * in the plugin source before anything is written.
      */
     public function actionFetch(): int
     {
@@ -54,14 +52,10 @@ class WadController extends Controller
      * Downloads the Doom shareware IWAD and installs it into storage/daemon/.
      *
      * The shareware episode is id's, not free software. Its licence allows the
-     * shareware release to be passed around, so this fetches it when you ask
-     * for it rather than shipping it: a Composer package carrying id's game
-     * data would make every install a redistributor without being asked.
-     *
-     * The WAD is verified against a checksum pinned in the plugin source
-     * before anything is written. That checksum was taken from an artefact
-     * matching the MD5 Debian's game-data-packager publishes, which is
-     * maintained separately from whoever serves the download.
+     * release to be passed around, so this fetches it when you ask rather than
+     * shipping it. The WAD is verified against a checksum pinned in the plugin
+     * source, taken from an artefact matching the MD5 Debian's game-data-packager
+     * publishes.
      */
     public function actionShareware(): int
     {

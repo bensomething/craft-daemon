@@ -11,33 +11,26 @@ use yii\base\Component;
 /**
  * Keeping savegames.
  *
- * The engine already persists saves on its own: Dwasm mounts IDBFS and syncs
- * after every save, so they survive a reload. What it cannot do is survive the
- * browser. Clear site data, switch machines, use a different browser, and the
- * saves are gone with no trace anywhere the site owner can see.
- *
- * So this service is a second home for them, in @storage, per user. It is a
- * copy, not a replacement: the engine goes on managing its own filesystem and
- * this only mirrors what lands there.
+ * Dwasm mounts IDBFS and syncs after every save, so they survive a reload. What
+ * they do not survive is the browser: clear site data or switch machines and
+ * they are gone. This is a second home for them, in @storage, per user. A copy,
+ * not a replacement.
  *
  * Nothing about a save is stored alongside it. The player's description is the
  * first 24 bytes of the file, the slot is the tail of the engine's filename,
- * and the time is the name of the file we write. Metadata that lives in the
- * bytes cannot drift from them.
+ * and the time is the name of the file we write, so metadata cannot drift.
  */
 class Saves extends Component
 {
     /**
-     * How many versions of each slot to keep. Ten is enough to undo a bad
-     * decision and few enough that a novelty doesn't quietly grow a gigabyte
-     * of Doom in storage.
+     * How many versions of each slot to keep. Enough to undo a bad decision, few
+     * enough that a novelty doesn't grow a gigabyte of Doom in storage.
      */
     public const MAX_VERSIONS = 10;
 
     /**
-     * The largest save accepted. PrBoom savegames run to a few hundred KB, so
-     * this is loose enough never to be hit by a real one and tight enough that
-     * the action is not an upload endpoint.
+     * The largest save accepted. PrBoom savegames run to a few hundred KB, so this
+     * is loose enough never to be hit and tight enough not to be an upload endpoint.
      */
     public const MAX_BYTES = 8388608;
 
@@ -52,10 +45,7 @@ class Saves extends Component
      */
     private const EXTENSION = '.dsg';
 
-    /**
-     * Where saves are kept. Under @storage, like the WADs, and for the same
-     * reason: nothing here should be reachable as a static file.
-     */
+    /** Where saves are kept. Under @storage, like the WADs, and for the same reason. */
     public function getStorageDir(): string
     {
         return Craft::getAlias('@storage/daemon/saves');
@@ -91,8 +81,8 @@ class Saves extends Component
     }
 
     /**
-     * The newest version of each slot, which is what a fresh page needs to put
-     * the player back where they were.
+     * The newest version of each slot, which is what a fresh page needs to put the
+     * player back where they were.
      *
      * @return Save[] Keyed by Save::$id.
      */
@@ -117,8 +107,8 @@ class Saves extends Component
     /**
      * Stores one savegame and prunes older versions of the same slot.
      *
-     * @param string $enginePath Where the file sits in the engine's own
-     * filesystem, relative to its save root.
+     * @param string $enginePath Where the file sits in the engine's own filesystem,
+     * relative to its save root.
      * @param string $contents The raw .dsg bytes.
      * @throws RuntimeException if the path or the contents are unusable.
      * @throws \yii\base\Exception if the directory can't be created.
@@ -172,10 +162,9 @@ class Saves extends Component
     }
 
     /**
-     * The bytes of one stored save, or null if the id matches nothing.
-     *
-     * The id is resolved by rebuilding the path from validated parts, so a
-     * request can name a file but can never describe one.
+     * The bytes of one stored save, or null if the id matches nothing. The id is
+     * resolved by rebuilding the path from validated parts, so a request can name a
+     * file but never describe one.
      */
     public function read(int $userId, string $wadKey, string $id): ?string
     {
@@ -191,8 +180,8 @@ class Saves extends Component
     }
 
     /**
-     * Turns a save id back into an absolute path, or null when the id is not
-     * one this service could ever have issued.
+     * Turns a save id back into an absolute path, or null when the id is not one
+     * this service could have issued.
      */
     private function resolve(int $userId, string $wadKey, string $id): ?string
     {
@@ -222,8 +211,8 @@ class Saves extends Component
     }
 
     /**
-     * The directory holding one user's saves for one game, or null when the
-     * game key isn't one that could have come from the WAD service.
+     * The directory holding one user's saves for one game, or null when the game key
+     * isn't one that could have come from the WAD service.
      */
     private function getGameDir(int $userId, string $wadKey): ?string
     {
@@ -235,10 +224,9 @@ class Saves extends Component
     }
 
     /**
-     * Whether a path segment is one this service is willing to build a path
-     * out of. Deliberately far stricter than "contains no slashes": every
-     * segment the plugin generates is a WAD key, an uppercase hex digest or an
-     * engine filename, and all three fit inside this.
+     * Whether a path segment is one this service will build a path out of. Stricter
+     * than "contains no slashes": every segment the plugin generates is a WAD key,
+     * an uppercase hex digest or an engine filename.
      */
     private function isSafeSegment(string $segment): bool
     {
@@ -253,10 +241,9 @@ class Saves extends Component
      * Splits an engine path into its directory and its filename without the
      * extension, or null if it is not a shape the engine produces.
      *
-     * PrBoom writes saves into a directory named after an MD5 of the loaded
-     * WADs, but that can be turned off in its own menu, in which case there is
-     * no directory at all. Both are accepted; the placeholder keeps the layout
-     * on disk the same either way.
+     * PrBoom writes saves into a directory named after an MD5 of the loaded WADs,
+     * but that can be turned off in its own menu, leaving no directory at all. The
+     * placeholder keeps the layout on disk the same either way.
      *
      * @return string[]|null [directory, filename without extension]
      */
@@ -327,11 +314,8 @@ class Saves extends Component
     }
 
     /**
-     * The player's own description, out of the head of the file.
-     *
-     * Whatever is there was typed into a Doom menu, so it is treated as
-     * hostile: anything outside printable ASCII is dropped rather than
-     * trusted to be harmless further up.
+     * The player's own description, out of the head of the file. Whatever is there
+     * was typed into a Doom menu, so anything outside printable ASCII is dropped.
      */
     private function readDescription(string $path): string
     {
@@ -355,9 +339,8 @@ class Saves extends Component
 
     /**
      * The slot number off the tail of the engine's filename, which runs
-     * `<savegamename><slot>.dsg`. Zero when there is no number, which is also
-     * the first slot, and a save with no slot in its name isn't one the engine
-     * wrote.
+     * `<savegamename><slot>.dsg`. Zero when there is no number, which is also the
+     * first slot.
      */
     private function readSlot(string $engineFile): int
     {

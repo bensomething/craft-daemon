@@ -1,24 +1,16 @@
 /*
- * Host layer for the Doom CP section.
- *
- * The engine is Dwasm (PrBoom+ / PrBoomX compiled to WebAssembly). Everything
- * here is the shim between it and a Craft control panel that has its own
- * opinions about keyboard input, its own web server serving cpresources, and
- * its own ideas about focus.
- *
- * Dwasm normally ships an IWAD baked into index.data at build time. This plugin
- * does not ship a WAD, so the engine is built with only its own resource WAD
- * preloaded and the admin's IWAD is written into the filesystem here, before
- * the engine starts.
+ * Host layer for the Doom CP section: the shim between Dwasm (PrBoom+
+ * compiled to WebAssembly) and a control panel with its own opinions about
+ * keyboard input. Dwasm expects an IWAD baked in at build time, so the
+ * admin's is written into its filesystem here before the engine starts.
  */
 (function ($) {
     'use strict';
 
     /*
      * Keys the browser acts on itself and the game also wants. preventDefault
-     * on these while playing; never stopPropagation, because SDL listens on
-     * window and stopping propagation takes the input away from the game as
-     * well as from Craft.
+     * only: SDL listens on window, so stopPropagation would disarm the game
+     * along with Craft.
      */
     var SWALLOWED_KEYS = [
         'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
@@ -28,34 +20,22 @@
     ];
 
     /*
-     * The arrow keys, by the name the browser gives the physical key.
-     *
-     * ev.code, not ev.key: the fix below has to tell a real numpad press from
-     * an arrow key claiming to be one, and only ev.code knows the difference.
+     * ev.code, not ev.key: only ev.code tells a real numpad press from an arrow
+     * key claiming to be one.
      */
     var ARROW_CODES = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
 
     /*
      * Undoes Safari's claim that the arrow keys are on the numeric keypad.
      *
-     * macOS sets the numeric-pad flag on the arrow keys, and WebKit passes it
-     * through as KeyboardEvent.location 3. SDL believes it: its keycode mapping
-     * has a numpad branch that turns SDLK_UP into SDLK_KP_8, SDLK_DOWN into
-     * SDLK_KP_2, and left and right into KP_4 and KP_6. PrBoom then receives
-     * KEYD_KEYPAD8 where key_menu_up expects KEYD_UPARROW, and nothing at all
-     * is bound to the keypad, so in Safari the menu cursor will not move, the
-     * option sliders will not slide, and the arrows will not turn the player.
-     * Every other key is untouched, which is why WASD, Ctrl, Space and Escape
-     * work there and only the arrows appear dead.
+     * macOS sets the numeric-pad flag on them and WebKit passes it through as
+     * KeyboardEvent.location 3, so SDL maps SDLK_UP to SDLK_KP_8 and PrBoom
+     * receives KEYD_KEYPAD8, which nothing is bound to: no menu cursor, no
+     * sliders, no turning, while every other key works.
      *
-     * SDL derives the scancode from ev.code, which is right in every browser,
-     * so only the keycode needs correcting. location is a getter on the
-     * prototype, and shadowing it with an own property on the event is enough:
-     * this runs on a capture-phase window listener, SDL's own listener runs
-     * later on the same event object, and it reads the corrected value.
-     *
-     * A genuine numpad press arrives as Numpad8 rather than ArrowUp, so the
-     * keys people actually press on a keypad are left alone.
+     * Only the keycode is wrong, the scancode comes from ev.code. location is a
+     * prototype getter, so an own property shadows it, and SDL reads the event
+     * later. A real numpad press is Numpad8, not ArrowUp, so it is left alone.
      */
     function unfakeNumpad(ev) {
         if (ev.location === 0 || ARROW_CODES.indexOf(ev.code) === -1) {
@@ -65,29 +45,20 @@
         try {
             Object.defineProperty(ev, 'location', {value: 0, configurable: true});
         } catch (e) {
-            // Some other engine's event object, or a browser that refuses.
-            // The key still reaches the game, it is just the wrong one.
+            // The key still reaches the game, just the wrong one.
         }
     }
 
     /*
-     * Where the admin's IWAD is written before the engine starts.
-     *
-     * The filename matters. PrBoom keeps savegames in a directory named after
-     * an MD5 of the basenames of the loaded WADs, which is what gives each
-     * game its own set of save slots. Write every IWAD to one fixed path and
-     * every game hashes the same, so a Doom II save lands in the same slot as
-     * a Freedoom one and overwrites it. The key is already [a-z0-9-], so it is
-     * safe to use as a filename as it stands.
+     * Where the admin's IWAD is written before the engine starts. The filename
+     * matters: PrBoom names its savegame directory after an MD5 of the loaded
+     * WADs' basenames, so a fixed path would give every game the same slots.
      */
     function wadPathFor(key) {
         return '/' + key + '.wad';
     }
 
-    /*
-     * Where Dwasm mounts IDBFS, and therefore where every savegame lives.
-     * Hardcoded in the engine as I_DoomExeDir(), so it is hardcoded here too.
-     */
+    /* Where Dwasm mounts IDBFS, hardcoded in the engine as I_DoomExeDir(). */
     var SAVE_ROOT = '/dwasm';
 
     /* What the engine calls a savegame. */
@@ -97,9 +68,8 @@
     var UPLOAD_DELAY = 800;
 
     /*
-     * FNV-1a over the file's bytes. Only ever compared against another hash of
-     * the same function, to answer "did this save change since we last looked",
-     * so it needs to be fast and stable, not cryptographic.
+     * FNV-1a. Only ever compared against another hash of the same function, so it
+     * needs to be fast and stable, not cryptographic.
      */
     function hashBytes(bytes) {
         var hash = 0x811c9dc5;
@@ -195,19 +165,9 @@
         },
 
         /**
-         * Switching game.
-         *
-         * The crumb menu items are links to this page with a different ?wad=,
-         * so the switch is an ordinary page load and the server renders the
-         * new game. That is not just simpler than swapping in place: the
-         * engine could not be swapped anyway once it has started. It takes its
-         * IWAD as a command line argument to a main() that has already run,
-         * its filesystem is written in preRun, and Emscripten's glue is not
-         * built to be instantiated twice in one document.
-         *
-         * So all that is left for this to do is get out of the way quietly:
-         * the player chose to leave this game, and the unsaved warning would
-         * be asking them about something they just decided.
+         * Switching game is an ordinary page load: the engine takes its IWAD as an
+         * argument to a main() that has already run and cannot be handed another.
+         * The player chose to leave, so the unsaved warning is not their question.
          */
         onWadClick: function (ev) {
             var key = $(ev.target).closest('[data-wad]').data('wad');
@@ -226,10 +186,7 @@
             return this.settings.wadUrls[this.settings.wad];
         },
 
-        /**
-         * Everything from the click through to the first frame. Driven by a
-         * user gesture because AudioContext will not start without one.
-         */
+        /** Driven by a user gesture, because AudioContext will not start without one. */
         start: function () {
             if (this.running) {
                 return;
@@ -259,13 +216,9 @@
         },
 
         /**
-         * Fetches a URL as an ArrayBuffer.
-         *
-         * The .wasm goes through here too, deliberately. instantiateStreaming
-         * would be the obvious call, but cpresources is served by the site's
-         * own nginx or Apache and plenty of stacks have no application/wasm
-         * entry in their MIME map, which makes streaming fail on the customer's
-         * server and nowhere else.
+         * Fetches a URL as an ArrayBuffer. The .wasm comes through here too rather
+         * than instantiateStreaming: cpresources is served by the site's own web
+         * server, and plenty have no application/wasm in their MIME map.
          */
         fetchBuffer: function (url) {
             return fetch(url, {credentials: 'same-origin'}).then(function (response) {
@@ -290,13 +243,11 @@
             var module = {
                 canvas: canvas,
 
-                // The engine runs main() itself once its dependencies resolve,
-                // taking its command line from here.
+                // The engine runs main() itself, taking its command line from here.
                 arguments: ['-iwad', wadPathFor(settings.wad)],
 
-                // index.wasm and index.data sit next to index.js in cpresources,
-                // but the published URLs carry ?v= cache busters, so they have
-                // to be handed over rather than derived from a base path.
+                // The published URLs carry ?v= cache busters, so they have to be
+                // handed over rather than derived from a base path.
                 locateFile: function (path) {
                     if (path === 'index.wasm') {
                         return settings.wasmUrl;
@@ -309,9 +260,8 @@
                     return path;
                 },
 
-                // Resolves the .wasm ourselves, from an ArrayBuffer, for the
-                // MIME-type reason above. Returning {} tells Emscripten the
-                // instantiation is asynchronous.
+                // From an ArrayBuffer, for the MIME-type reason above. Returning
+                // {} tells Emscripten the instantiation is asynchronous.
                 instantiateWasm: function (imports, successCallback) {
                     WebAssembly.instantiate(assets.wasm, imports)
                         .then(function (result) {
@@ -338,11 +288,9 @@
                 },
 
                 /**
-                 * The engine asks for pointer lock through this rather than
-                 * calling requestPointerLock itself, which is what makes it
-                 * safe: the browser only grants a lock from a user gesture, so
-                 * a request raised from the game loop is refused. If the
-                 * immediate attempt fails, wait for a keypress and try again.
+                 * The engine asks through this rather than calling requestPointerLock
+                 * itself: a lock is only granted from a user gesture, so a request
+                 * raised from the game loop is refused.
                  */
                 captureMouse: function () {
                     if (!settings.pointerLock) {
@@ -356,8 +304,7 @@
                 },
 
                 winResized: function () {
-                    // Canvas sizing is left to the engine; the stylesheet only
-                    // constrains how large it is displayed.
+                    // Sizing is the engine's; the stylesheet only says how large.
                 },
 
                 softExit: function (status) {
@@ -375,8 +322,7 @@
                 },
 
                 setStatus: function () {
-                    // The overlay covers startup progress; this only exists to
-                    // stop the engine's own status handling from throwing.
+                    // Only exists to stop the engine's status handling throwing.
                 },
 
                 monitorRunDependencies: function () {
@@ -401,8 +347,8 @@
             if (document.pointerLockElement === null && canvas.requestPointerLock) {
                 var result = canvas.requestPointerLock();
 
-                // Chrome returns a promise here and rejects if the document
-                // isn't focused; nothing to do about it but not throw.
+                // Chrome rejects if the document isn't focused. Nothing to do
+                // about that but not throw.
                 if (result && typeof result.catch === 'function') {
                     result.catch(function () {
                     });
@@ -412,10 +358,7 @@
             return document.pointerLockElement !== null;
         },
 
-        /**
-         * Injects the Emscripten glue script. It reads the global Module we
-         * just assigned, which is why this runs last.
-         */
+        /** Injects the Emscripten glue, which reads the global Module assigned above. */
         loadScript: function (url) {
             return new Promise(function (resolve, reject) {
                 var script = document.createElement('script');
@@ -436,14 +379,9 @@
         },
 
         /**
-         * Keeps Craft's keyboard shortcuts out of the game.
-         *
-         * Garnish scopes shortcuts to the topmost UI layer, the same mechanism
-         * modals use, so pushing a layer suppresses the CP's own bindings
-         * without touching a single listener. The capture-phase handler that
-         * follows only calls preventDefault, never stopPropagation: SDL listens
-         * on window, so anything that halts propagation disarms the game along
-         * with Craft.
+         * Scopes Craft's shortcuts away with a Garnish UI layer, the mechanism modals
+         * use. The capture-phase handler only calls preventDefault: stopPropagation
+         * would take the keys from the game as well as from Craft.
          */
         captureInput: function () {
             if (Garnish.uiLayerManager && typeof Garnish.uiLayerManager.addLayer === 'function') {
@@ -454,11 +392,8 @@
             this.keyHandler = this.onKey.bind(this);
             window.addEventListener('keydown', this.keyHandler, true);
 
-            // Keyups only need the numpad correction, never preventDefault:
-            // the browser has no default action left to take by then. They do
-            // need it though, because SDL matches a release against the press
-            // by keycode, and a press that arrived as an arrow and a release
-            // that arrived as a keypad key leaves the game holding a key down.
+            // Keyups need the correction too: SDL matches a release to its press
+            // by keycode, and a mismatch leaves the game holding a key down.
             this.keyUpHandler = this.onKeyUp.bind(this);
             window.addEventListener('keyup', this.keyUpHandler, true);
 
@@ -467,20 +402,16 @@
         },
 
         /**
-         * Warns before leaving with progress the engine hasn't written down.
-         *
-         * Doom saves when the player says so and at no other moment, so a
-         * closed tab is a lost level. Browsers decide the wording themselves
-         * and only honour this at all if the page has been interacted with,
-         * which pressing Play guarantees.
+         * Warns before leaving with progress the engine hasn't written down. Doom
+         * saves when the player says so and at no other moment, so a closed tab is a
+         * lost level.
          */
         onBeforeUnload: function (ev) {
             if (!this.unsaved || this.leaving) {
                 return;
             }
 
-            // Both, because which one a browser listens to depends on the
-            // browser, and neither is expensive to set.
+            // Both, because which one a browser listens to varies.
             ev.preventDefault();
             ev.returnValue = '';
 
@@ -514,14 +445,12 @@
         },
 
         onKey: function (ev) {
-            // Before the metaKey check, not after: a chord this code leaves
-            // alone still reaches the game, and it should reach it as the key
-            // that was actually pressed.
+            // Before the metaKey check: a chord left alone still reaches the
+            // game, and should reach it as the key actually pressed.
             unfakeNumpad(ev);
 
             if (ev.metaKey || ev.altKey) {
-                // Leave the browser's own chords alone. Cmd-W is not a weapon
-                // switch and pretending otherwise only annoys people.
+                // Cmd-W is not a weapon switch.
                 return;
             }
 
@@ -535,15 +464,10 @@
         },
 
         /**
-         * Watches the engine's own persistence.
-         *
-         * Dwasm keeps saves in IDBFS and calls FS.syncfs after every one, so
-         * wrapping syncfs is a hook into the engine's save flow that needs no
-         * change to the engine. The populate call is the restore at startup;
-         * every other call is the engine writing something down.
-         *
-         * This runs in preRun, before the engine has mounted anything, which
-         * is the only moment guaranteed to be earlier than its first sync.
+         * Wrapping FS.syncfs hooks the engine's save flow without patching it. The
+         * populate call is the restore at startup, every other call is the engine
+         * writing something down. Runs in preRun, the only moment guaranteed to be
+         * earlier than its first sync.
          */
         watchSaves: function (FS) {
             var self = this;
@@ -577,21 +501,17 @@
         },
 
         /**
-         * The engine has finished pulling its filesystem out of IndexedDB, so
-         * this is the first moment the save directory means anything.
-         *
-         * Anything Craft holds that the browser does not gets written in. Only
-         * the gaps: a save already in the filesystem is at least as new as the
-         * stored copy, and overwriting it would lose a save made in a session
-         * that never finished uploading.
+         * The first moment the save directory means anything. Fills gaps only: a save
+         * already in the filesystem is at least as new as the stored copy, and may be
+         * one that never finished uploading.
          */
         onEngineRestored: function () {
             var self = this;
 
             this.baseline = {};
 
-            // The baseline still gets taken when saves aren't being kept: it
-            // is what tells the unload warning whether the player has saved.
+            // Taken even when saves aren't kept: it is what tells the unload
+            // warning whether the player has saved.
             if (!this.settings.autosave) {
                 this.snapshot();
 
@@ -621,15 +541,14 @@
         },
 
         /**
-         * The engine has just written something down. Usually a savegame,
-         * sometimes only its config, so the upload works out which.
+         * The engine has just written something down, a savegame or only its config,
+         * so the upload works out which.
          */
         onEngineSaved: function () {
             var self = this;
 
-            // The engine syncs more than once around a single save, and syncs
-            // for its config as well as for savegames, so wait for it to
-            // settle and then find out what actually changed.
+            // The engine syncs more than once per save, and for its config too,
+            // so let it settle and then find out what changed.
             if (this.uploadTimer) {
                 clearTimeout(this.uploadTimer);
             }
@@ -647,9 +566,8 @@
                 self.unsaved = false;
 
                 if (self.settings.autosave) {
-                    // Notified, because the engine's Save Game is now the only
-                    // way saves get here: nothing else would tell the player
-                    // their save reached Craft rather than only the browser.
+                    // The game's Save Game is the only way saves get here, so
+                    // nothing else would say one reached Craft.
                     self.pushChanged(changed, {notify: true});
                 }
             }, UPLOAD_DELAY);
@@ -694,10 +612,7 @@
             });
         },
 
-        /**
-         * Every savegame whose bytes differ from the last upload, as
-         * {path, data} ready to post.
-         */
+        /** Every savegame whose bytes differ from the last upload, as {path, data}. */
         collectChanged: function () {
             var FS = this.module.FS;
             var changed = [];
@@ -726,8 +641,8 @@
         },
 
         /**
-         * Records an upload as the new baseline. Done after the response
-         * rather than before, so a failed upload is retried on the next save.
+         * Records an upload as the new baseline, after the response rather than
+         * before, so a failed upload is retried on the next save.
          */
         commit: function (changed) {
             var self = this;
@@ -739,8 +654,8 @@
         },
 
         /**
-         * Takes the current state of the save directory as the baseline, so
-         * the next upload sends only what changed after this moment.
+         * Takes the save directory as it stands, so the next upload sends only what
+         * changed after this moment.
          */
         snapshot: function () {
             if (!this.module) {
@@ -754,17 +669,15 @@
                 try {
                     self.baseline[path.slice(SAVE_ROOT.length + 1)] = hashBytes(FS.readFile(path));
                 } catch (e) {
-                    // A file that cannot be read now reads as changed later,
-                    // which is the safe way round.
+                    // Unreadable now reads as changed later, the safe way round.
                 }
             });
         },
 
         /**
-         * Calls back with the absolute path of every savegame under the save
-         * root. PrBoom nests them one directory deep, named after a digest of
-         * the loaded WADs, unless the player turns that off in its own menu,
-         * so this walks rather than assuming a depth.
+         * Calls back with every savegame under the save root. PrBoom nests them a
+         * directory deep, named after a digest of the loaded WADs, unless the player
+         * turns that off, so this walks rather than assuming a depth.
          */
         eachSaveFile: function (callback, dir) {
             var FS = this.module.FS;
@@ -831,17 +744,14 @@
                 return false;
             }
 
-            // Craft already has these bytes, so the baseline has to agree, or
-            // the next sync uploads them straight back.
+            // Craft has these bytes already, so the baseline must agree or the
+            // next sync uploads them straight back.
             this.baseline[save.path] = hashBytes(bytes);
 
             return true;
         },
 
-        /**
-         * mkdir -p, because FS.mkdir makes one level and throws if it is
-         * already there.
-         */
+        /** mkdir -p, because FS.mkdir makes one level and throws if it is already there. */
         makeDirs: function (dir) {
             var FS = this.module.FS;
             var parts = dir.split('/');
@@ -863,8 +773,8 @@
         },
 
         /**
-         * Pushes the filesystem into IndexedDB, flagged so the wrapper above
-         * does not read our own write as the player saving.
+         * Pushes the filesystem into IndexedDB, flagged so the wrapper above does not
+         * read our own write as the player's.
          */
         persist: function () {
             var self = this;
@@ -876,12 +786,9 @@
         },
 
         /**
-         * Restores a version from the menu.
-         *
-         * This writes the file into the slot it came from and stops there. The
-         * engine reads a save when its own Load menu asks for one, and there
-         * is no way in from out here without a build that exports G_LoadGame,
-         * so the player finishes the job from inside the game.
+         * Restores a version into the slot it came from and stops there. The engine
+         * reads a save when its own Load menu asks for one, and nothing out here can
+         * ask for it without a build that exports G_LoadGame.
          */
         onSaveMenuClick: function (ev) {
             var $item = $(ev.target).closest('[data-save-id]');
@@ -915,10 +822,7 @@
             });
         },
 
-        /**
-         * Rebuilds the menu next to the breadcrumbs from what Craft is
-         * holding.
-         */
+        /** Rebuilds the menu next to the breadcrumbs from what Craft is holding. */
         refreshSaveMenu: function () {
             if (!this.$saveMenu.length) {
                 return;
@@ -936,19 +840,16 @@
         },
 
         /**
-         * Draws the menu items. Built here rather than fetched as rendered
-         * markup because the list changes after every save, and a round trip
-         * for four elements is a round trip for nothing.
+         * Draws the menu items. Built here rather than fetched as rendered markup
+         * because the list changes after every save.
          */
         renderSaveMenu: function (saves) {
             var $list = this.$saveMenu.find('.daemon-saves-list').empty();
 
             this.$saveMenu.find('.daemon-saves-empty').toggleClass('hidden', saves.length > 0);
 
-            // Shaped like the markup Cp::menuItem() emits, down to the
-            // utility classes: the description is nested inside the label
-            // rather than beside it, and the column it stacks in comes from
-            // those classes, not from anything this plugin ships.
+            // Shaped like Cp::menuItem()'s markup, utility classes included:
+            // the column the description stacks in comes from those.
             saves.forEach(function (save) {
                 $('<li/>').append(
                     $('<button/>', {

@@ -10,54 +10,40 @@ use craft\helpers\FileHelper;
 class Settings extends Model
 {
     /**
-     * @var string|null A directory to look for WADs in, as an alias or an env
-     * var reference. Null means storage/daemon/ only.
+     * @var string|null A directory to look for WADs in, as an alias or an env var
+     * reference. Null means storage/daemon/ only.
      */
     public ?string $wadDir = null;
 
     /**
-     * @var string|null The key of the WAD to load when nothing else is asked
-     * for. Null means the first one found, which is alphabetical within the
-     * first search directory and therefore decided by accident.
-     *
-     * A key that names nothing available is ignored rather than treated as an
-     * error: the same setting is deployed to environments whose storage holds
-     * a different set of WADs.
+     * @var string|null The key of the WAD to load when nothing else is asked for.
+     * Null means the first one found. A key naming nothing available is ignored
+     * rather than an error: the same setting reaches environments holding other WADs.
      */
     public ?string $defaultWad = null;
 
     /**
-     * @var array<string, string> Names the admin has given WADs, keyed by the
-     * WAD key. Anything absent falls back to the name the plugin derives from
-     * the filename.
-     *
-     * Keyed by the WAD key, which comes from the filename, so renaming a file
-     * orphans its name. That beats keying on the full path, which orphans on
-     * every environment whose storage lives somewhere else.
+     * @var array<string, string> Names the admin has given WADs, keyed by the WAD
+     * key, which comes from the filename. Anything absent falls back to the derived
+     * name. Renaming a file orphans its name, which beats keying on the full path.
      */
     public array $wadNames = [];
 
     /**
-     * @var bool Whether savegames are copied into Craft as the engine writes
-     * them, which also decides whether the Saves menu appears at all. Off
-     * leaves saves in the browser, where the engine puts them, and the only
-     * thing standing between a player and a lost level is the warning shown
-     * when leaving the page.
+     * @var bool Whether savegames are copied into Craft as the engine writes them,
+     * which also decides whether the Saves menu appears. Off leaves them in the
+     * browser, with only the unload warning between a player and a lost level.
      */
     public bool $autosave = false;
 
-    /**
-     * @var bool Whether pointer lock is offered for mouselook. Off means
-     * keyboard only, which some people prefer and some browsers force.
-     */
+    /** @var bool Whether pointer lock is offered for mouselook. */
     public bool $pointerLock = true;
 
     /**
      * The configured directory with any $ENV_VAR or @alias resolved. Null when
-     * nothing is configured, and also when the reference resolves to nothing,
-     * which is what a $VAR set in one environment and not another does. That
-     * is the quiet outcome on purpose: the plugin falls back to storage rather
-     * than complaining about a path this environment was never meant to have.
+     * nothing is configured, and when the reference resolves to nothing, which is
+     * what a $VAR set in one environment and not another does. Quiet on purpose:
+     * the plugin falls back to storage rather than complaining.
      */
     public function getWadDir(): ?string
     {
@@ -79,11 +65,8 @@ class Settings extends Model
     }
 
     /**
-     * Drops blank and unusable entries before validation.
-     *
-     * A field left empty posts an empty string, and storing that would put
-     * `key: ''` into project config on every save, which reads as "this WAD is
-     * called nothing" rather than "this WAD has no custom name".
+     * Drops blank and unusable entries before validation. An empty field posts an
+     * empty string, and storing that reads as "this WAD is called nothing".
      */
     public function beforeValidate(): bool
     {
@@ -117,8 +100,7 @@ class Settings extends Model
 
     /**
      * Whether a string is shaped like a key the WAD service issues. Keys are
-     * generated, never typed, so anything else did not come from the settings
-     * screen.
+     * generated, never typed.
      */
     private function isWadKey(string $key): bool
     {
@@ -137,9 +119,8 @@ class Settings extends Model
     }
 
     /**
-     * Checks that every name is a string of a sane length. beforeValidate()
-     * has already dropped the blanks and the keys this screen can't produce,
-     * so anything left that fails here arrived some other way.
+     * Checks that every name is a string of a sane length. beforeValidate() has
+     * already dropped the blanks and the keys this screen can't produce.
      */
     public function validateWadNames(string $attribute): void
     {

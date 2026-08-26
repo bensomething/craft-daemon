@@ -15,10 +15,9 @@ use yii\web\Response;
 /**
  * Reading and writing savegames on behalf of the browser.
  *
- * Everything here is scoped to the logged-in user. A save is not addressed by
- * a path, only by an id the service issued, and the user id comes from the
- * session rather than the request, so there is no id one player can send to
- * reach another's saves.
+ * Everything here is scoped to the logged-in user. A save is addressed by an id
+ * the service issued, never by a path, and the user id comes from the session
+ * rather than the request, so no id can reach another player's saves.
  */
 class SaveController extends Controller
 {
@@ -39,8 +38,7 @@ class SaveController extends Controller
     /**
      * Every version of every save for one game, for the menu.
      *
-     * @throws BadRequestHttpException if the request isn't for JSON, or names
-     * no game.
+     * @throws BadRequestHttpException if the request isn't for JSON, or names no game.
      */
     public function actionList(): Response
     {
@@ -55,11 +53,10 @@ class SaveController extends Controller
     }
 
     /**
-     * The newest version of each save, with its bytes, for a page that has
-     * just loaded and wants the player's slots back.
+     * The newest version of each save, with its bytes, for a page that has just
+     * loaded and wants the player's slots back.
      *
-     * @throws BadRequestHttpException if the request isn't for JSON, or names
-     * no game.
+     * @throws BadRequestHttpException if the request isn't for JSON, or names no game.
      */
     public function actionRestore(): Response
     {
@@ -82,11 +79,10 @@ class SaveController extends Controller
     }
 
     /**
-     * One stored save, with its bytes. This is what picking an older version
-     * out of the menu calls.
+     * One stored save, with its bytes. What picking an older version calls.
      *
-     * @throws BadRequestHttpException if the request isn't for JSON, names no
-     * game, or names no save.
+     * @throws BadRequestHttpException if the request isn't for JSON, names no game,
+     * or names no save.
      */
     public function actionRead(): Response
     {
@@ -116,8 +112,7 @@ class SaveController extends Controller
     /**
      * Stores savegames the browser has just pulled out of the engine.
      *
-     * @throws BadRequestHttpException if the request isn't a JSON POST, or
-     * names no game.
+     * @throws BadRequestHttpException if the request isn't a JSON POST, or names no game.
      */
     public function actionUpload(): Response
     {
@@ -176,8 +171,8 @@ class SaveController extends Controller
     }
 
     /**
-     * The logged-in user's id. beforeAction() has already refused anyone who
-     * isn't logged in, so this cannot be null by the time it is called.
+     * The logged-in user's id. beforeAction() has already refused anyone who isn't
+     * logged in, so this cannot be null.
      */
     private function userId(): int
     {
@@ -185,10 +180,8 @@ class SaveController extends Controller
     }
 
     /**
-     * The game the request is about.
-     *
-     * Checked against the WADs actually available rather than accepted as a
-     * string, so a key can only ever name a game this install has.
+     * The game the request is about, checked against the WADs actually available
+     * rather than accepted as a string.
      *
      * @throws BadRequestHttpException if the key names no available game.
      */

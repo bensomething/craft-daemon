@@ -71,9 +71,9 @@ class Plugin extends \craft\base\Plugin
     }
 
     /**
-     * Craft hides the nav item for anyone without `accessplugin-daemon`, but that
-     * permission is really "can this user reach the plugin at all". Playing is
-     * gated separately so it can be granted on its own.
+     * Craft hides the nav item without `accessplugin-daemon`, but that permission
+     * means "can reach the plugin at all". Playing is gated separately so it can be
+     * granted on its own.
      */
     public function getCpNavItem(): ?array
     {
@@ -130,8 +130,8 @@ class Plugin extends \craft\base\Plugin
     }
 
     /**
-     * Registered in every request context, not just CP requests: permissions
-     * are read by console commands and by user-save validation too.
+     * Registered in every request context: permissions are read by console commands
+     * and by user-save validation too.
      */
     private function registerPermissions(): void
     {

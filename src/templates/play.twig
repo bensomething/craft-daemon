@@ -1,8 +1,7 @@
 {% extends '_layouts/cp' %}
 
-{# The game is the page, the way an entry is the page on an entry screen: the
-   heading and the last crumb are both its name, and the section name lives in
-   the crumb before it. #}
+{# The game is the page, the way an entry is: the heading and the last crumb
+   are both its name. #}
 {% set title = wad ? wad.name : 'Daemon'|t('daemon') %}
 {% set docTitle = wad ? title ~ ' - ' ~ 'Daemon'|t('daemon') : title %}
 {% set bodyClass = (bodyClass ?? [])|explodeClass|push('daemon-screen') %}
@@ -10,15 +9,10 @@
 {% set crumbs = [{label: 'Daemon'|t('daemon'), url: url('daemon')}] %}
 
 {% if wad and wads|length > 1 %}
-    {# A menu only when there is a choice, which is how Craft's own section
-       crumb behaves. The items are ordinary links to this page with a
-       different ?wad=, so switching game is a page load: the controller reads
-       the game off the query string, and this keeps the URL and what is on
-       screen from ever disagreeing.
-
-       The crumb carries no label or url of its own. findCrumb() lifts them off
-       whichever item is selected, so it cannot end up captioned with a game
-       other than the one it points at. #}
+    {# A menu only when there is a choice, as Craft's own section crumb behaves.
+       Ordinary links with a different ?wad=, so the URL and what is on screen
+       cannot disagree. No label or url of its own: findCrumb() lifts them off
+       the selected item, so it cannot caption itself with the wrong game. #}
     {% set crumbs = crumbs|merge([{
         id: 'daemon-wad',
         menu: {
@@ -36,19 +30,14 @@
     {% set crumbs = crumbs|merge([{label: wad.name, current: true}]) %}
 {% endif %}
 
-{# The Saves menu sits beside the breadcrumbs, in the slot an entry uses for
-   its drafts and revisions. Craft's own initUiElements() binds any element
-   carrying data-disclosure-trigger on page load, so this needs no JS of its
-   own to open; the host script only fills in the list.
+{# In the slot an entry uses for drafts and revisions. initUiElements() binds
+   data-disclosure-trigger on load, so this needs no JS of its own to open.
 
-   Written out rather than built with Cp::disclosureMenu(), because the items
-   are fetched after the page is rendered, and that helper drops a menu with no
-   items on the floor. So it has to match what the helper would have emitted,
-   and #context-menu-container is strict about that: the visible label is a
-   sibling of the button, not its contents. It draws the pill itself and gives
-   the button a leading border to sit behind, which is where the divider
-   between the two comes from. A label inside the button leaves that divider
-   with nothing on the near side of it. #}
+   Written out rather than built with Cp::disclosureMenu(), which drops a menu
+   with no items on the floor, and the items arrive after render. So it has to
+   match what that helper emits: #context-menu-container draws the pill itself
+   and wants the label as a sibling of the button, not inside it, or the
+   divider between them has nothing on its near side. #}
 {% if canSave %}
     {% set contextMenu %}
         <span>{{ 'Saves'|t('daemon') }}</span>
@@ -58,9 +47,8 @@
                 aria-label="{{ 'Select save'|t('daemon') }}"
                 data-disclosure-trigger></button>
 
-        {# padded belongs to the menu, not to what is inside it: .menu.padded is
-           what gives the box its inset. On a ul it means something else
-           entirely, the gutter that holds a selected item's checkmark. #}
+        {# padded belongs to the menu, not to what is inside it. On a ul it means
+           something else: the gutter holding a selected item's checkmark. #}
         <div id="daemon-saves-menu" class="padded menu menu--disclosure">
             <ul class="daemon-saves-list"></ul>
             <p class="daemon-saves-empty light">{{ 'No saves kept yet.'|t('daemon') }}</p>
@@ -82,21 +70,16 @@
         </div>
     {% else %}
         <div id="daemon-frame" class="daemon-frame">
-            {# id="canvas" is not decoration: Emscripten's canvas sizing resolves
-               its target by that selector, and without it the backing store is
-               never set and stays at the HTML default of 300x150, so the game
-               renders a full frame into a fraction of a buffer. #}
+            {# id="canvas" is not decoration: Emscripten resolves its sizing target by
+               that selector, and without it the backing store stays at the HTML
+               default of 300x150. #}
             <canvas id="canvas" class="daemon-canvas" tabindex="-1" aria-label="{{ 'Daemon'|t('daemon') }}"></canvas>
 
-            {# The status paragraph starts empty on purpose. The host script
-               writes loading progress and any failure into it, and an empty
-               one is hidden, so it takes up no room until it has something to
-               say. #}
+            {# The status paragraph starts empty. The host script writes progress and
+               failures into it, and an empty one is hidden. #}
             <div class="daemon-overlay">
-                {# Its own box so the controls below can never be sat on. It
-                   takes whatever height the controls leave, and centres what is
-                   inside that, so a wrapped controls line pushes the button up
-                   rather than through it. #}
+                {# Its own box, taking whatever height the controls leave, so a wrapped
+                   controls line pushes the button up rather than through it. #}
                 <div class="daemon-overlay-main">
                     <button type="button" class="btn submit daemon-start">{{ 'Play {name}'|t('daemon', {name: wad.name}) }}</button>
                     <p class="daemon-status"></p>

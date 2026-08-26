@@ -1,10 +1,9 @@
 /*
- * The Freedoom download button on the settings screen.
+ * The WAD download buttons on the settings screen.
  *
- * The request that does the downloading can't report its own progress, so the
- * work and the progress live in two requests: POST daemon/wad/fetch does the
- * download and writes percentages to the cache, and daemon/wad/progress is polled
- * alongside it to read them back.
+ * The request doing the work can't report its own progress, so it lives in two:
+ * the POST downloads and writes percentages to the cache, and daemon/wad/progress
+ * is polled alongside to read them back.
  */
 (function ($) {
     'use strict';
@@ -31,9 +30,7 @@
             this.$status = this.$container.find('.daemon-fetch-status');
             this.$progress = this.$container.find('.daemon-fetch-progress');
 
-            // Outside the fetch container, so it is found from the form
-            // rather than from within: the progress bar and status line live
-            // in here and must survive a swap of the list.
+            // Outside the fetch container, which must survive the swap.
             this.$list = this.$container.closest('form').find('.daemon-wad-list');
 
             this.progressBar = new Craft.ProgressBar(this.$progress);
@@ -42,10 +39,8 @@
         },
 
         /**
-         * Starts whichever download was asked for. Every button is disabled
-         * for the duration, not just the one pressed: the two downloads share
-         * one progress key, so running both at once would have them overwrite
-         * each other's percentages.
+         * Every button is disabled, not just the one pressed: the downloads
+         * share one progress key and would overwrite each other.
          */
         fetch: function (ev) {
             if (this.running) {
@@ -77,17 +72,15 @@
                     self.succeed(response.data);
                 })
                 .catch(function (error) {
-                    // Craft puts the controller's failure message on the
-                    // response body; the bare Error message is just the status.
+                    // Craft puts the failure message on the response body.
                     var data = (error && error.response && error.response.data) || {};
                     self.fail(data.message || (error && error.message));
                 });
         },
 
         /**
-         * Polls until the fetch request settles. Rescheduled from the response
-         * rather than on a fixed interval, so a slow reply can't stack up
-         * requests behind itself.
+         * Rescheduled from the response rather than on a fixed interval, so a
+         * slow reply can't stack requests behind itself.
          */
         poll: function () {
             var self = this;
@@ -103,8 +96,7 @@
                     }
                 })
                 .catch(function () {
-                    // A dropped poll is not a failed download. The fetch
-                    // request is the one that decides the outcome.
+                    // A dropped poll is not a failed download.
                 })
                 .then(function () {
                     if (self.running) {
@@ -114,22 +106,17 @@
         },
 
         /**
-         * Shows the new WAD without reloading.
-         *
-         * The page is a full page form carrying data-confirm-unload, so a
-         * reload part way through editing either discards the names the admin
-         * has typed or stops to ask them about it. Neither is a reasonable
-         * answer to pressing Download, so the list is re-rendered by the
-         * server and swapped in instead.
+         * Shows the new WAD without reloading. The page carries
+         * data-confirm-unload, so a reload mid-edit would either discard names
+         * being typed or stop to ask about them.
          */
         succeed: function (data) {
             this.stop();
             this.progressBar.setProgressPercentage(100);
-            this.setStatus(Craft.t('daemon', 'Installed.'));
+            this.setStatus(this.installedMessage());
             Craft.cp.displayNotice(data.message || Craft.t('daemon', 'Installed.'));
 
-            // The button offered a download and there is now nothing left to
-            // download, so it offers the download again instead.
+            // Nothing left to download, so it offers the download again.
             if (this.$pressed && this.$pressed.data('daemon-again-label')) {
                 this.$pressed.text(this.$pressed.data('daemon-again-label'));
             }
@@ -141,10 +128,8 @@
                     self.replaceList(response.data.html);
                 })
                 .catch(function () {
-                    // The download itself worked, which is what the notice
-                    // said. Only the list on screen is stale, and saying so is
-                    // better than undoing a notice that was true.
-                    self.setStatus(Craft.t('daemon', 'Installed. Reload to see it listed.'));
+                    // The download worked; only the list is stale.
+                    self.setStatus(self.installedMessage(true));
                 })
                 .then(function () {
                     self.release();
@@ -152,12 +137,24 @@
         },
 
         /**
-         * Swaps in the re-rendered list, keeping anything typed but not saved.
-         *
-         * The markup comes back as the server would have rendered it, which
-         * means the name fields hold what was last saved rather than what is
-         * on screen. Carrying the current values across keeps a half finished
-         * rename from disappearing because somebody pressed Download.
+         * Names the game that was installed, from the button that asked for it.
+         */
+        installedMessage: function (stale) {
+            var game = this.$pressed && this.$pressed.data('daemon-game');
+
+            if (!game) {
+                return Craft.t('daemon', 'Installed.');
+            }
+
+            return stale
+                ? Craft.t('daemon', '{game} installed. Reload to see it listed.', {game: game})
+                : Craft.t('daemon', '{game} installed.', {game: game});
+        },
+
+        /**
+         * Swaps in the re-rendered list. The markup holds what was last saved,
+         * so current values are carried across and a half finished rename does
+         * not disappear because somebody pressed Download.
          */
         replaceList: function (html) {
             if (!this.$list.length) {
@@ -181,20 +178,16 @@
                 }
             });
 
-            // A form that had no unsaved changes before the swap still has
-            // none: a WAD appearing is the server's news, not the admin's
-            // edit. Left alone, the new rows would read as changes and the
-            // page would ask about them on the way out.
+            // A WAD appearing is the server's news, not an edit. Left alone,
+            // the new rows would read as unsaved changes.
             if (clean) {
                 this.markFormClean($form);
             }
         },
 
         /**
-         * Craft decides whether to warn on leaving by comparing the form
-         * against the serialization it took on load, through a serializer the
-         * form may have replaced. Both halves of that are read here rather
-         * than assumed.
+         * Craft compares the form against the serialization it took on load,
+         * through a serializer the form may have replaced.
          */
         isFormClean: function ($form) {
             if (!$form.length || !$form.data('initialSerializedValue')) {
@@ -214,10 +207,7 @@
             return typeof serializer === 'function' ? serializer() : $form.serialize();
         },
 
-        /**
-         * Hands the buttons back and clears the bar, however the download
-         * ended.
-         */
+        /** Hands the buttons back, however the download ended. */
         release: function () {
             this.progressBar.hideProgressBar();
             this.$container.removeClass('daemon-fetch--busy');
