@@ -49,18 +49,98 @@ plugin source, and unpacks `freedoom1.wad` and `freedoom2.wad` into
 Run it once per environment. `storage/` is not usually deployed, so a fresh
 server needs its own copy.
 
-### Already have a WAD?
+### The shareware episode
 
-Set the path in **Settings** to **Plugins** to **Daemon**. It takes an absolute
-path, an `@alias`, or a `$ENVIRONMENT_VARIABLE`, and it wins over anything in
-`storage/daemon/`.
+```sh
+php craft daemon/wad/shareware
+```
+
+There is a **Download Doom (shareware)** button on the settings screen that does
+the same thing. Either way it fetches id's Doom shareware IWAD and verifies it
+before installing it. It
+is a download, not a bundle: the shareware licence covers passing the release
+around, but a Composer package carrying id's game data would make every install
+a redistributor of it without being asked, and would mean this package is no
+longer wholly MIT and GPL. The WAD it installs is id Software's and is not
+covered by this plugin's licence.
+
+The checksum is pinned against an artefact matching the MD5 that Debian's
+`game-data-packager` publishes, so it is maintained independently of whoever is
+serving the file. id's own distribution is a DOS self-extracting installer that
+nothing here can unpack, which is why the download comes from a mirror.
+
+### Already have some WADs?
+
+Point **Settings** to **Plugins** to **Daemon** at the directory they live in.
+It takes an absolute path, an `@alias`, or a `$ENVIRONMENT_VARIABLE`. Every WAD
+in there joins the ones in `storage/daemon/`, and because that directory is
+searched first, its first WAD becomes the default.
+
+Nothing is copied or moved. The files are read where they are.
+
+### Naming games
+
+Known IWADs are named for you, and anything else is listed by filename. Both are
+just defaults: the settings screen lists every WAD in a table with an editable
+name, and the derived name sits in the field as a placeholder, so leaving it
+empty keeps the usual name.
+
+Names are keyed on the WAD's key, which comes from its filename, so renaming a
+file forgets the name you gave it.
+
+The same table picks the **default**: the WAD that loads when you open the
+Daemon screen. Without one it is whichever file sorts first in the first search
+directory, which is not a decision so much as an accident of filenames.
+
+### Switching game
+
+When more than one WAD is available, the last breadcrumb becomes a menu of
+them, in the same place an entry's section sits. Known IWADs are listed by
+name; anything else is listed by filename.
+
+The items are ordinary links, so switching game is a page load. It has to be:
+the engine takes its IWAD as a command line argument to a `main()` that has
+already run, and cannot be handed another one. The choice lives in the URL
+(`?wad=freedoom2`), so a reload keeps it and a bookmark restores it.
+
+## Savegames
+
+The engine keeps its own saves in the browser, in IndexedDB, and they survive a
+reload on their own. What they do not survive is clearing site data, a different
+browser, or a different machine.
+
+Leaving the page mid-game with progress the engine hasn't written down gets the
+browser's own "leave site?" warning. Doom saves when you say so and at no other
+moment, so a closed tab is otherwise a lost level.
+
+### Keeping saves in Craft
+
+Turn on **Keep savegames** in the settings and every save is also copied into
+`storage/daemon/saves/`, under the id of the user who made it, as it is written.
+Ten versions of each slot are kept. When a page loads, anything Craft holds that
+the browser does not is written back into the engine, so a fresh machine starts
+with your slots already filled.
+
+There is nothing to press. Saving is the game's own Save Game, from the Esc
+menu, and the copy into Craft follows it; the plugin watches the engine's
+filesystem sync rather than asking the player to do the same thing twice.
+
+The setting also adds a **Saves** menu beside the breadcrumbs, listing every
+stored version. Picking one puts it back in its slot; press Esc and then Load
+Game to play it.
+
+It is off by default, so saves stay in the browser where the engine put them.
+
+Saves are tied to the engine build that wrote them, so bumping `REPO_TAG` in
+`bin/build-engine.sh` may orphan them.
 
 ## Console commands
 
 | Command | What it does |
 | --- | --- |
 | `daemon/wad/fetch` | Downloads and verifies Freedoom into `storage/daemon/` |
-| `daemon/wad/list` | Lists the WADs the plugin can see, marking the active one |
+| `daemon/wad/shareware` | Downloads and verifies the Doom shareware IWAD into `storage/daemon/` |
+| `daemon/wad/list` | Lists the WADs the plugin can see, marking the default |
 | `daemon/wad/status` | Prints where it looked, what it found, and how the engine was built |
 
 ## Permissions
@@ -92,6 +172,19 @@ Doom wants arrows, Ctrl and Space. The host script pushes a Garnish UI layer
 then calls `preventDefault` on a capture-phase window listener for the keys the
 browser itself would act on. It never calls `stopPropagation`: SDL listens on
 `window`, so halting propagation would disarm the game along with Craft.
+
+**Safari lies about the arrow keys.** macOS sets the numeric-pad flag on the
+arrow keys, and WebKit passes it through as `KeyboardEvent.location` 3. SDL
+believes it: its keycode mapping has a numpad branch that turns `SDLK_UP` into
+`SDLK_KP_8`, so PrBoom receives `KEYD_KEYPAD8` where `key_menu_up` expects
+`KEYD_UPARROW`. Nothing is bound to the keypad, so the menu cursor sits still,
+sliders will not slide, and the arrows will not turn the player — while WASD,
+Ctrl, Space and Escape all work, which makes it look like the arrows alone are
+dead. The host script shadows `location` with an own property on the event
+before SDL's own listener reads it. The physical key is in `ev.code`, which is
+right everywhere, so a genuine numpad press arrives as `Numpad8` and is left
+alone. Key-ups get the same treatment: SDL matches a release to its press by
+keycode, and a mismatch leaves the game holding a key down.
 
 **Pointer lock waits for a gesture.** Browsers only grant a pointer lock from a
 user gesture, so a request raised from the game loop is refused. The engine asks

@@ -1,3 +1,59 @@
+/* The content pane, on the Daemon screen only.
+ *
+ * Scoped by a body class rather than by the fact that this stylesheet is only
+ * registered on one screen. That happens to be true today, and it is not the
+ * kind of thing worth relying on: #content belongs to every page in the
+ * control panel.
+ *
+ * The URL is relative, so it resolves against this file wherever the asset
+ * manager republishes it, cache buster and all. */
+.daemon-screen #content {
+    background-image: url(doom-bg.jpg);
+    background-size: cover;
+    background-position: center;
+    /* The backdrop should reach the bottom of the window rather than stopping
+       wherever the game happens to end, with the game centred in what it
+       leaves. */
+    display: flex;
+    flex-direction: column;
+    /* Declared twice on purpose. Plain centring puts overflow off both ends of
+       the pane, and the top of an overflowing game would be unreachable by
+       scrolling; safe reverts to flex-start the moment it stops fitting.
+       A browser without safe drops the second declaration and keeps the
+       first. */
+    justify-content: center;
+    justify-content: safe center;
+    flex: 1;
+}
+
+/* Craft's layout never hands a height down: #global-container is 100vh, but
+   #main-container, <main>, #main-content and the content grid all size to
+   their contents, so the pane gets exactly what the game asked for and no
+   more. These reopen that chain a link at a time.
+ *
+ * Scoped to the Daemon screen, because a pane stretched to the window is
+ * wrong everywhere else in the control panel: a short settings form would sit
+ * in a tall empty box. */
+.daemon-screen #main-container,
+.daemon-screen #main-container > main,
+.daemon-screen #content-container,
+.daemon-screen .content-grid__main {
+    display: flex;
+    flex-direction: column;
+}
+
+.daemon-screen #main-container > main,
+.daemon-screen .content-grid {
+    flex: 1;
+}
+
+.daemon-screen #main-content {
+    /* align-items: flex-start is the link that actually stops the stretch;
+       without this the rest of the chain has nothing to fill. */
+    align-items: stretch;
+    flex: 1;
+}
+
 /* The canvas must carry no border and no padding, or SDL's mouse
    coordinates are offset by however much you added. */
 .daemon-frame {
@@ -13,8 +69,17 @@
        ultrawide display; the pane is the real constraint. */
     width: 100%;
     max-width: 1280px;
-    margin: 0 auto;
-    background: #000;
+    /* Horizontal only. The vertical centring is the pane's job now, and a
+       vertical auto margin here would fight flex for it. */
+    margin-inline: auto;
+    /* Nothing in the chain above may shrink it: the game is a fixed ratio, and
+       a flex parent squashing it would break that ratio rather than scale it. */
+    flex-shrink: 0;
+    /* Deliberately not black. The overlay in front of this is translucent so
+       the background image reads through it before the game starts, and an
+       opaque frame behind it would leave nothing to read through to. Once the
+       engine runs it paints every pixel of the canvas, so nothing shows. */
+    background: transparent;
     border-radius: var(--large-border-radius, 5px);
     overflow: hidden;
 }
@@ -27,7 +92,9 @@
     inset: 0;
     width: 100%;
     height: 100%;
-    background: #000;
+    /* Transparent for the same reason as the frame: the canvas covers the
+       whole frame, so its own background is the box you would be looking at. */
+    background: transparent;
     border: 0;
     padding: 0;
     image-rendering: pixelated;
@@ -43,13 +110,24 @@
     inset: 0;
     display: flex;
     flex-direction: column;
+    text-align: center;
+    background: rgb(0 0 0 / 50%);
+    color: #fff;
+}
+
+/* Takes whatever height the controls leave and centres the button in it. So
+   the button sits on the middle of the frame while there is room and rises as
+   the controls wrap to more lines, which a bottom-pinned strip could not do:
+   it was positioned out of the flow and simply sat over whatever it met. */
+.daemon-overlay-main {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 14px;
     padding: 24px;
-    text-align: center;
-    background: #000;
-    color: #fff;
 }
 
 .daemon-overlay--hidden {
@@ -68,6 +146,10 @@
     color: #ff6b6b;
 }
 
+.daemon-overlay--error .daemon-hint {
+    display: none;
+}
+
 .daemon-status {
     font-size: 13px;
     line-height: 1.4;
@@ -75,8 +157,84 @@
     max-width: 44ch;
 }
 
+/* The overlay is a flex column with a gap, so an empty status would still
+   push the controls down by one gap. It is empty until the host script has
+   something to report, which is most of the time. */
+.daemon-status:empty {
+    display: none;
+}
+
+/* A hint, never a gate.
+
+   The engine has no touch support at all: its event loop reads key and mouse
+   button events and nothing else, so a tap arrives as mouse button 1 and fires
+   the weapon, which is the whole repertoire a touchscreen gets. Moving,
+   turning, opening doors and reaching the menu all need keys.
+
+   There is no way to ask a browser whether a keyboard is attached. Coarse
+   pointer with no hover is the closest thing, and it is only a correlation: an
+   iPad with a keyboard reports exactly this and plays perfectly well. So the
+   note appears and the button stays live, rather than the screen refusing to
+   run on a device that would have been fine. */
+.daemon-touch-note {
+    display: none;
+    max-width: 40ch;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #e6b96b;
+}
+
+@media (pointer: coarse) and (hover: none) {
+    .daemon-touch-note {
+        display: block;
+    }
+}
+
+/* The last row of the overlay column, so it is always below the button and
+   never over it, however many lines it wraps to. */
 .daemon-hint {
-    margin-top: 4px;
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 18px;
+    padding: 12px 16px 14px;
     font-size: 12px;
     color: #7f8a96;
+}
+
+/* The label carries the emphasis the "Controls" heading used to. */
+.daemon-hint b {
+    font-weight: 700;
+    color: #b6c1cd;
+}
+
+/* A row, wrapping only when the frame is too narrow to hold the line. */
+.daemon-hint ul {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 18px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* font: inherit first, because the browser default for kbd is a monospace
+   family at a smaller size, and the size below has to win. */
+.daemon-hint kbd {
+    display: inline-block;
+    min-width: 1.5em;
+    padding: 1px 5px;
+    border: 1px solid #3f4a56;
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: #1c232b;
+    color: #d8e0e8;
+    font: inherit;
+    font-size: 11px;
+    line-height: 1.5;
+    text-align: center;
 }

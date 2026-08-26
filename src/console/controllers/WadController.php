@@ -51,27 +51,63 @@ class WadController extends Controller
     }
 
     /**
+     * Downloads the Doom shareware IWAD and installs it into storage/daemon/.
+     *
+     * The shareware episode is id's, not free software. Its licence allows the
+     * shareware release to be passed around, so this fetches it when you ask
+     * for it rather than shipping it: a Composer package carrying id's game
+     * data would make every install a redistributor without being asked.
+     *
+     * The WAD is verified against a checksum pinned in the plugin source
+     * before anything is written. That checksum was taken from an artefact
+     * matching the MD5 Debian's game-data-packager publishes, which is
+     * maintained separately from whoever serves the download.
+     */
+    public function actionShareware(): int
+    {
+        $wads = Plugin::getInstance()->getWads();
+
+        $this->stdout('Downloading the Doom shareware IWAD ... ');
+
+        try {
+            $path = $wads->fetchShareware();
+        } catch (Throwable $e) {
+            $this->stdout(PHP_EOL);
+            $this->stderr($e->getMessage() . PHP_EOL, Console::FG_RED);
+
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        $this->stdout('done' . PHP_EOL, Console::FG_GREEN);
+        $this->stdout('  ' . $path . PHP_EOL);
+        $this->stdout(PHP_EOL);
+        $this->stdout('This WAD is id Software\'s and is not covered by this plugin\'s licence.' . PHP_EOL, Console::FG_YELLOW);
+
+        return ExitCode::OK;
+    }
+
+    /**
      * Lists the WADs available to the plugin.
      */
     public function actionList(): int
     {
         $wads = Plugin::getInstance()->getWads();
-        $stored = $wads->getStoredWads();
-        $active = $wads->getWadPath();
+        $available = $wads->getAvailableWads();
 
-        if ($stored === [] && $active === null) {
+        if ($available === []) {
             $this->stdout('No WADs found. Run `craft daemon/wad/fetch` to install Freedoom.' . PHP_EOL, Console::FG_YELLOW);
 
             return ExitCode::OK;
         }
 
-        foreach ($stored as $path) {
-            $marker = $path === $active ? ' (active)' : '';
-            $this->stdout('  ' . $path . $marker . PHP_EOL);
-        }
+        // Compared by key rather than by object: getDefaultWad() rescans, so
+        // the WAD it returns is never the same instance as the one in the list.
+        $default = $wads->getDefaultWad()?->key;
 
-        if ($active !== null && !in_array($active, $stored, true)) {
-            $this->stdout('  ' . $active . ' (active, configured path)' . PHP_EOL);
+        foreach ($available as $wad) {
+            $marker = $wad->key === $default ? ' (default)' : '';
+            $this->stdout('  ' . $wad->path . $marker . PHP_EOL);
+            $this->stdout('    ' . $wad->name . PHP_EOL, Console::FG_GREY);
         }
 
         return ExitCode::OK;
@@ -86,7 +122,10 @@ class WadController extends Controller
         $engine = $plugin->getEngine();
         $wads = $plugin->getWads();
 
-        $this->stdout('Storage:  ' . $wads->getStorageDir() . PHP_EOL);
+        foreach ($wads->getSearchDirs() as $dir) {
+            $this->stdout('Looking:  ' . $dir . (is_dir($dir) ? '' : ' (does not exist)') . PHP_EOL);
+        }
+
         $this->stdout('WAD:      ' . ($wads->getWadPath() ?? 'none') . PHP_EOL);
         $this->stdout('Engine:   ' . ($engine->isInstalled() ? $engine->getPath() : 'not built') . PHP_EOL);
 

@@ -5,6 +5,7 @@ namespace bensomething\daemon;
 use bensomething\daemon\controllers\PlayController;
 use bensomething\daemon\models\Settings;
 use bensomething\daemon\services\Engine;
+use bensomething\daemon\services\Saves;
 use bensomething\daemon\services\Wads;
 use bensomething\daemon\web\assets\settings\SettingsAsset;
 use Craft;
@@ -22,6 +23,7 @@ use yii\base\Event;
  * is a derivative of GPL-2.0 source. See NOTICE.md.
  *
  * @property-read Engine $engine
+ * @property-read Saves $saves
  * @property-read Wads $wads
  * @method Settings getSettings()
  */
@@ -36,6 +38,7 @@ class Plugin extends \craft\base\Plugin
         return [
             'components' => [
                 'engine' => Engine::class,
+                'saves' => Saves::class,
                 'wads' => Wads::class,
             ],
         ];
@@ -55,6 +58,11 @@ class Plugin extends \craft\base\Plugin
     public function getEngine(): Engine
     {
         return $this->get('engine');
+    }
+
+    public function getSaves(): Saves
+    {
+        return $this->get('saves');
     }
 
     public function getWads(): Wads
@@ -96,10 +104,17 @@ class Plugin extends \craft\base\Plugin
     {
         Craft::$app->getView()->registerAssetBundle(SettingsAsset::class);
 
+        // Resolved here rather than in the template: Twig has no is_dir(), and
+        // a directory that was typed wrong should say so on the screen where
+        // it was typed.
+        $wadDir = $this->getSettings()->getWadDir();
+
         return Craft::$app->getView()->renderTemplate('daemon/_settings.twig', [
             'settings' => $this->getSettings(),
             'wads' => $this->getWads(),
             'engine' => $this->getEngine(),
+            'wadDir' => $wadDir,
+            'wadDirMissing' => $wadDir !== null && !is_dir($wadDir),
         ]);
     }
 

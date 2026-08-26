@@ -61,36 +61,53 @@ class PlayController extends Controller
             $engineDataUrl = $assetManager->getPublishedUrl(DaemonAsset::sourcePath(), true, 'engine/' . Engine::DATA_FILE);
         }
 
+        // Which game is loaded is a query param rather than stored state, so
+        // the URL is the whole answer: shareable, bookmarkable, and the same
+        // page on a reload.
+        $available = $wads->getAvailableWads();
+        $wad = $wads->getRequestedWad($this->request->getQueryParam('wad'));
+
         return $this->renderTemplate('daemon/play.twig', [
             'engineInstalled' => $engine->isInstalled(),
             'engineJsUrl' => $engineJsUrl ?: null,
             'engineWasmUrl' => $engineWasmUrl ?: null,
             'engineDataUrl' => $engineDataUrl ?: null,
-            'buildInfo' => $engine->getBuildInfo(),
-            'wadPath' => $wads->getWadPath(),
+            'wads' => $available,
+            'wad' => $wad,
+            // The Saves menu only means anything once there is a game to
+            // save, only for a real user (the actions behind it store per
+            // user id), and only when saves are being kept at all.
+            'canSave' => $wad !== null
+                && Craft::$app->getUser()->getId() !== null
+                && $plugin->getSettings()->autosave,
+            'autosave' => $plugin->getSettings()->autosave,
             'pointerLock' => $plugin->getSettings()->pointerLock,
             'canManageSettings' => Craft::$app->getUser()->getIsAdmin(),
         ]);
     }
 
     /**
-     * Streams the configured WAD.
+     * Streams the selected WAD.
      *
      * WADs live under @storage, not the web root, so this action is the only
      * way the bytes reach a browser. That keeps the permission check on the
      * content itself rather than on the page that happens to link to it.
      *
+     * The `wad` param is a key, not a path. It is resolved by looking it up in
+     * the list the service builds from the filesystem, so nothing a request
+     * sends is ever used to address a file.
+     *
      * @throws NotFoundHttpException if no valid WAD is configured.
      */
     public function actionWad(): Response
     {
-        $path = Plugin::getInstance()->getWads()->getWadPath();
+        $wad = Plugin::getInstance()->getWads()->getRequestedWad($this->request->getQueryParam('wad'));
 
-        if ($path === null) {
+        if ($wad === null) {
             throw new NotFoundHttpException('No WAD is configured.');
         }
 
-        return $this->response->sendFile($path, basename($path), [
+        return $this->response->sendFile($wad->path, basename($wad->path), [
             'inline' => true,
             'mimeType' => 'application/octet-stream',
         ]);

@@ -56,11 +56,39 @@ class WadController extends Controller
      */
     public function actionFetch(): Response
     {
+        return $this->download(
+            fn(callable $onProgress) => Plugin::getInstance()->getWads()->fetchFreedoom($onProgress),
+            Craft::t('daemon', 'Freedoom installed.'),
+        );
+    }
+
+    /**
+     * Downloads the Doom shareware IWAD, reporting progress as it goes.
+     *
+     * @throws \yii\web\BadRequestHttpException if the request isn't a POST.
+     */
+    public function actionShareware(): Response
+    {
+        return $this->download(
+            fn(callable $onProgress) => [Plugin::getInstance()->getWads()->fetchShareware($onProgress)],
+            Craft::t('daemon', 'The Doom shareware IWAD is id Software\'s, and is not covered by this plugin\'s licence.'),
+        );
+    }
+
+    /**
+     * Runs one download, publishing progress for actionProgress() to read.
+     *
+     * @param callable $fetch Given the progress callback, does the work and
+     * returns the paths written.
+     * @param string $message What to tell the browser on success.
+     * @throws \yii\web\BadRequestHttpException if the request isn't a POST.
+     */
+    private function download(callable $fetch, string $message): Response
+    {
         $this->requirePostRequest();
         $this->requireAcceptsJson();
 
         $cache = Craft::$app->getCache();
-        $wads = Plugin::getInstance()->getWads();
 
         $this->setProgress(0, 0, 'downloading');
 
@@ -73,7 +101,7 @@ class WadController extends Controller
         $lastPercent = -1;
 
         try {
-            $written = $wads->fetchFreedoom(
+            $written = $fetch(
                 function(int $downloaded, int $total) use (&$lastPercent) {
                     if ($total <= 0) {
                         return;
@@ -91,7 +119,7 @@ class WadController extends Controller
             );
         } catch (Throwable $e) {
             $cache->delete(self::PROGRESS_KEY);
-            Craft::error("Freedoom download failed: {$e->getMessage()}", __METHOD__);
+            Craft::error("WAD download failed: {$e->getMessage()}", __METHOD__);
 
             // Plain JSON rather than asFailure()/asSuccess(): those set a
             // session flash, which would re-open the session we just closed and
@@ -105,7 +133,7 @@ class WadController extends Controller
         $cache->delete(self::PROGRESS_KEY);
 
         return $this->asJson([
-            'message' => Craft::t('daemon', 'Freedoom installed.'),
+            'message' => $message,
             'wads' => $written,
         ]);
     }

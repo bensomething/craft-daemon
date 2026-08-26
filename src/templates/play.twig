@@ -1,16 +1,69 @@
 {% extends '_layouts/cp' %}
 
-{% set title = 'Daemon'|t('daemon') %}
+{# The game is the page, the way an entry is the page on an entry screen: the
+   heading and the last crumb are both its name, and the section name lives in
+   the crumb before it. #}
+{% set title = wad ? wad.name : 'Daemon'|t('daemon') %}
+{% set docTitle = wad ? title ~ ' - ' ~ 'Daemon'|t('daemon') : title %}
+{% set bodyClass = (bodyClass ?? [])|explodeClass|push('daemon-screen') %}
 
-{% if buildInfo %}
-    {% set details %}
-        <div class="meta read-only">
-            {% for key, value in buildInfo %}
-                <div class="data">
-                    <div class="heading"><span>{{ key }}</span></div>
-                    <div class="value"><code>{{ value }}</code></div>
-                </div>
-            {% endfor %}
+{% set crumbs = [{label: 'Daemon'|t('daemon'), url: url('daemon')}] %}
+
+{% if wad and wads|length > 1 %}
+    {# A menu only when there is a choice, which is how Craft's own section
+       crumb behaves. The items are ordinary links to this page with a
+       different ?wad=, so switching game is a page load: the controller reads
+       the game off the query string, and this keeps the URL and what is on
+       screen from ever disagreeing.
+
+       The crumb carries no label or url of its own. findCrumb() lifts them off
+       whichever item is selected, so it cannot end up captioned with a game
+       other than the one it points at. #}
+    {% set crumbs = crumbs|merge([{
+        id: 'daemon-wad',
+        menu: {
+            label: 'Select game'|t('daemon'),
+            items: wads|map(w => {
+                label: w.name,
+                url: url('daemon', {wad: w.key}),
+                icon: w.icon,
+                selected: w.key == wad.key,
+                attributes: {data: {wad: w.key}},
+            })|values,
+        },
+    }]) %}
+{% elseif wad %}
+    {% set crumbs = crumbs|merge([{label: wad.name, current: true}]) %}
+{% endif %}
+
+{# The Saves menu sits beside the breadcrumbs, in the slot an entry uses for
+   its drafts and revisions. Craft's own initUiElements() binds any element
+   carrying data-disclosure-trigger on page load, so this needs no JS of its
+   own to open; the host script only fills in the list.
+
+   Written out rather than built with Cp::disclosureMenu(), because the items
+   are fetched after the page is rendered, and that helper drops a menu with no
+   items on the floor. So it has to match what the helper would have emitted,
+   and #context-menu-container is strict about that: the visible label is a
+   sibling of the button, not its contents. It draws the pill itself and gives
+   the button a leading border to sit behind, which is where the divider
+   between the two comes from. A label inside the button leaves that divider
+   with nothing on the near side of it. #}
+{% if canSave %}
+    {% set contextMenu %}
+        <span>{{ 'Saves'|t('daemon') }}</span>
+
+        <button type="button" class="btn menubtn"
+                aria-controls="daemon-saves-menu"
+                aria-label="{{ 'Select save'|t('daemon') }}"
+                data-disclosure-trigger></button>
+
+        {# padded belongs to the menu, not to what is inside it: .menu.padded is
+           what gives the box its inset. On a ul it means something else
+           entirely, the gutter that holds a selected item's checkmark. #}
+        <div id="daemon-saves-menu" class="padded menu menu--disclosure">
+            <ul class="daemon-saves-list"></ul>
+            <p class="daemon-saves-empty light">{{ 'No saves kept yet.'|t('daemon') }}</p>
         </div>
     {% endset %}
 {% endif %}
@@ -20,7 +73,7 @@
         <div class="pane">
             <p>{{ 'The engine is missing. A released copy of this plugin ships with it, so either you are working from a fresh clone (run bin/build-engine.sh) or something went wrong during install.'|t('daemon') }}</p>
         </div>
-    {% elseif wadPath is null %}
+    {% elseif wad is null %}
         <div class="pane">
             <p>{{ 'No WAD is available. Run craft daemon/wad/fetch to install Freedoom, or point the plugin at a WAD you already have.'|t('daemon') }}</p>
             {% if canManageSettings %}
@@ -35,10 +88,30 @@
                renders a full frame into a fraction of a buffer. #}
             <canvas id="canvas" class="daemon-canvas" tabindex="-1" aria-label="{{ 'Daemon'|t('daemon') }}"></canvas>
 
+            {# The status paragraph starts empty on purpose. The host script
+               writes loading progress and any failure into it, and an empty
+               one is hidden, so it takes up no room until it has something to
+               say. #}
             <div class="daemon-overlay">
-                <button type="button" class="btn submit daemon-start">{{ 'Start'|t('daemon') }}</button>
-                <p class="daemon-status">{{ 'Sound needs a click to start, so the game does too.'|t('daemon') }}</p>
-                <p class="daemon-hint">{{ 'Arrows to move, Ctrl to fire, Space to open, Esc for the menu.'|t('daemon') }}</p>
+                {# Its own box so the controls below can never be sat on. It
+                   takes whatever height the controls leave, and centres what is
+                   inside that, so a wrapped controls line pushes the button up
+                   rather than through it. #}
+                <div class="daemon-overlay-main">
+                    <button type="button" class="btn submit daemon-start">{{ 'Play {name}'|t('daemon', {name: wad.name}) }}</button>
+                    <p class="daemon-status"></p>
+                    <p class="daemon-touch-note">{{ 'The game needs a keyboard. Connect one, or play on a computer.'|t('daemon') }}</p>
+                </div>
+
+                <div class="daemon-hint">
+                    <ul>
+                        <li><b>{{ 'Move'|t('daemon') }}:</b> <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></li>
+                        <li><b>{{ 'Turn'|t('daemon') }}:</b> <kbd>&larr;</kbd> <kbd>&rarr;</kbd> {{ 'or mouse'|t('daemon') }}</li>
+                        <li><b>{{ 'Fire'|t('daemon') }}:</b> <kbd>Ctrl</kbd> {{ 'or left click'|t('daemon') }}</li>
+                        <li><b>{{ 'Open'|t('daemon') }}:</b> <kbd>Space</kbd></li>
+                        <li><b>{{ 'Menu'|t('daemon') }}:</b> <kbd>Esc</kbd></li>
+                    </ul>
+                </div>
             </div>
         </div>
 
@@ -47,7 +120,17 @@
                 engineUrl: {{ engineJsUrl|json_encode|raw }},
                 wasmUrl: {{ engineWasmUrl|json_encode|raw }},
                 dataUrl: {{ engineDataUrl|json_encode|raw }},
-                wadUrl: {{ actionUrl('daemon/play/wad')|json_encode|raw }},
+                wad: {{ wad.key|json_encode|raw }},
+                wadUrls: {{ wads|map(w => actionUrl('daemon/play/wad', {wad: w.key}))|json_encode|raw }},
+                wadMenu: '#daemon-wad-menu',
+                saveActions: {
+                    list: 'daemon/save/list',
+                    read: 'daemon/save/read',
+                    restore: 'daemon/save/restore',
+                    upload: 'daemon/save/upload'
+                },
+                saveMenu: '#daemon-saves-menu',
+                autosave: {{ autosave ? 'true' : 'false' }},
                 pointerLock: {{ pointerLock ? 'true' : 'false' }}
             });
         {% endjs %}

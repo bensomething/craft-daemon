@@ -6,19 +6,75 @@
     </p>
 {% endif %}
 
-{% set found = wads.getStoredWads() %}
+{% set available = wads.getAvailableWads() %}
+{% set stored = wads.getStoredWads() %}
 {% set storageDir = wads.getStorageDir() %}
 
 <h2 class="daemon-heading">{{ 'WADs'|t('daemon') }}</h2>
 
-{% if found %}
-    <p class="light">{{ 'Found in {dir}. The first one is used unless you set a path below.'|t('daemon', {dir: storageDir}) }}</p>
+{% if available %}
+    <p class="light">{{ 'Everything the plugin can see. The default is what loads when you open the Daemon screen, and the Game menu switches between them. Leave a name empty to use the one shown.'|t('daemon') }}</p>
 
-    <ul class="bullets daemon-wad-list">
-        {% for path in found %}
-            <li><code>{{ path }}</code></li>
-        {% endfor %}
-    </ul>
+    {# Craft's editable table markup, written out rather than built with
+       forms.editableTableField.
+
+       The component keys its cells as name[rowId][colId], which would turn a
+       flat map of names into a map of single-key maps, and it takes one
+       placeholder per column. Both matter here: the rows are files on disk
+       rather than rows a person adds, and each one needs its own placeholder,
+       because the placeholder is the name the plugin would pick on its own.
+
+       No Craft.EditableTable is initialised. Its job is adding, deleting and
+       reordering rows, and none of that applies to a list the filesystem
+       decides. #}
+    <table id="daemon-wad-names" class="editable fullwidth daemon-wad-table">
+        <col>
+        <col class="daemon-col-name">
+        <col>
+        <thead>
+            <tr>
+                <th id="daemon-wad-names-default" scope="col" class="checkbox-cell thin">{{ 'Default'|t('daemon') }}</th>
+                <th id="daemon-wad-names-name" scope="col" class="singleline-cell textual daemon-name-cell">{{ 'Name'|t('daemon') }}</th>
+                <th id="daemon-wad-names-file" scope="col" class="heading-cell">{{ 'File'|t('daemon') }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for wad in available %}
+                <tr>
+                    {# Checked off the list order rather than off the setting.
+                       The service sorts the chosen default first, so the first
+                       row is the effective default whether or not one was ever
+                       picked, and the control shows what is actually happening
+                       rather than what was last saved. #}
+                    <td class="checkbox-cell thin">
+                        {{ forms.radio({
+                            id: 'defaultWad-' ~ wad.key,
+                            name: 'defaultWad',
+                            value: wad.key,
+                            checked: loop.first,
+                            label: 'Load {name} by default'|t('daemon', {name: wad.name}),
+                            containerAttributes: {class: 'visually-hidden'},
+                        }) }}
+                    </td>
+                    <td class="singleline-cell textual daemon-name-cell">
+                        {{ tag('textarea', {
+                            name: 'wadNames[' ~ wad.key ~ ']',
+                            rows: 1,
+                            placeholder: wad.defaultName,
+                            text: settings.wadNames[wad.key] ?? '',
+                            aria: {labelledby: 'daemon-wad-names-name'},
+                        }) }}
+                    </td>
+                    {# The path is the row's header: it is what identifies the
+                       row, so a screen reader reading the name field announces
+                       which file it belongs to. #}
+                    <th scope="row" class="heading-cell">
+                        <code>{{ wad.path }}</code>
+                    </th>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 {% else %}
     <p class="light">
         {{ 'No WADs found yet. Freedoom is a free, BSD licensed replacement for the id WADs, and it is all this needs to run.'|t('daemon') }}
@@ -32,30 +88,54 @@
    nothing. #}
 <div class="daemon-fetch">
     <div class="buttons">
-        <button type="button" class="btn daemon-fetch-btn" data-icon="download">
-            {{ found ? 'Download Freedoom again'|t('daemon') : 'Download Freedoom'|t('daemon') }}
+        <button type="button" class="btn daemon-fetch-btn" data-icon="download"
+                data-daemon-action="daemon/wad/shareware">
+            {{ 'Download Doom (shareware)'|t('daemon') }}
+        </button>
+
+        {# Keyed off storage, not off everything found: having a WAD from some
+           other directory is no reason to say you already have Freedoom. #}
+        <button type="button" class="btn daemon-fetch-btn" data-icon="download"
+                data-daemon-action="daemon/wad/fetch">
+            {{ stored ? 'Download Freedoom again'|t('daemon') : 'Download Freedoom'|t('daemon') }}
         </button>
     </div>
 
+    {# One bar and one status line for both buttons, which is also what keeps
+       two downloads from running at once: the downloader has a single running
+       flag, so whichever button is pressed first owns the row until it is
+       finished. #}
     <div class="daemon-fetch-progress"></div>
 
     <p class="daemon-fetch-status light"></p>
 </div>
 
-<hr>
+<p class="light daemon-fetch-note">
+    {{ 'Freedoom is free software. The Doom shareware episode is id Software\'s, redistributable but not free, and it is fetched rather than shipped for that reason.'|t('daemon') }}
+</p>
 
 {{ forms.autosuggestField({
-    label: 'WAD path'|t('daemon'),
-    instructions: 'Load a WAD from somewhere else instead. An absolute path, an @alias, or a $ENVIRONMENT_VARIABLE. Leave this empty to use the first WAD found in {dir}.'|t('daemon', {dir: storageDir}),
-    id: 'wadPath',
-    name: 'wadPath',
+    label: 'WAD directory'|t('daemon'),
+    instructions: 'Also look for WADs here, alongside {dir}. An absolute path, an @alias, or a $ENVIRONMENT_VARIABLE. Everything found is listed in the Game menu, and this directory is searched first, so the first WAD in it becomes the default.'|t('daemon', {dir: storageDir}),
+    warning: wadDirMissing ? '{dir} does not exist, so nothing is being loaded from it.'|t('daemon', {dir: wadDir}),
+    id: 'wadDir',
+    name: 'wadDir',
     suggestEnvVars: true,
     suggestAliases: true,
-    value: settings.wadPath,
-    errors: settings.getErrors('wadPath'),
+    value: settings.wadDir,
+    errors: settings.getErrors('wadDir'),
 }) }}
 
 <hr>
+
+{{ forms.lightswitchField({
+    label: 'Keep savegames'|t('daemon'),
+    instructions: 'Copy savegames into Craft as the game writes them, and add a **Saves** menu to the Daemon screen. Saving from the game\'s own Esc menu is what triggers it. The engine already keeps its own copy in the browser, which is lost the moment site data is cleared. This version lives in storage and follows the player to another machine. Off by default: leaving the page mid-game warns you either way.'|t('daemon'),
+    id: 'autosave',
+    name: 'autosave',
+    on: settings.autosave,
+    errors: settings.getErrors('autosave'),
+}) }}
 
 {{ forms.lightswitchField({
     label: 'Pointer lock'|t('daemon'),
@@ -67,14 +147,69 @@
 }) }}
 
 {% css %}
-    /* Only when it leads the pane. If the engine warning is showing, the
-       heading is no longer first and wants its normal spacing back. */
-    .daemon-heading:first-child { margin-top: 0; }
-    .daemon-wad-list { margin-top: 8px; }
-    .daemon-fetch { margin-top: 20px; }
-    .daemon-fetch .buttons { margin-top: 0; }
-    .daemon-fetch .daemon-fetch-progress { max-width: 380px; }
-    .daemon-fetch .daemon-fetch-status { margin-top: 8px; }
+    /* Not :first-child. Craft's plugin settings template emits three hidden
+       inputs before this template's output, so the heading is never the first
+       element child and neither this rule nor Craft's own h2:first-child reset
+       ever matched. Zero it outright, and hand the 14px back only when the
+       engine warning is above it and needs the separation. */
+    .daemon-heading { margin-top: 0; }
+    .warning + .daemon-heading { margin-top: 14px; }
+    .daemon-wad-table { margin-top: 12px; }
+    /* Fixed rather than a percentage: without a width of its own the name
+       column collapses to whatever the paths leave it, which on a long storage
+       path is nothing. min-width as well as width, because the table lays out
+       automatically and treats width alone as a suggestion.
+
+       Keyed on a class rather than a position, so moving a column around does
+       not silently move the width and the rule onto a different one. */
+    .daemon-wad-table .daemon-col-name { width: 200px; }
+    .daemon-wad-table .daemon-name-cell {
+        width: 200px;
+        min-width: 200px;
+        border-right: 1px solid var(--hairline-color, #e3e5e8);
+    }
+    .daemon-wad-table .heading-cell { font-weight: normal; }
+    .daemon-wad-table code { word-break: break-all; }
+    .daemon-wad-table .checkbox-cell { text-align: center; vertical-align: middle; }
+    /* Tighter rows. Craft sizes the editable table for typing in; this one is
+       a fixed list of files that only takes a name, so it can afford to be read
+       at a glance instead. The textarea has to come down with the cells: at 7px
+       of block padding on a 20px line it is the tallest thing in the row, and
+       trimming the cells on their own would move nothing. */
+    table.daemon-wad-table tbody tr th,
+    table.daemon-wad-table thead tr th,
+    table.daemon-wad-table tbody tr td.checkbox-cell { padding-block: 4px; }
+    .daemon-wad-table .daemon-name-cell textarea { padding-block: 4px; }
+
+    /* The button and its progress on one row. The bar only takes space while
+       there is something to report, so an idle screen is just a button. */
+    .daemon-fetch {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    /* margin-block, not margin-top: .buttons sets 24px on both sides, and
+       zeroing only the top leaves it the tallest thing in the row at 54px.
+       align-items: center then centres the bar and the status against that,
+       while the buttons themselves sit in the top 30px of it, so the bar
+       reads as 12px low. */
+    .daemon-fetch .buttons { margin-block: 0; }
+    .daemon-fetch .daemon-fetch-progress { display: none; flex: 1 1 160px; max-width: 320px; }
+    /* Craft's progress bar is absolutely positioned at 20%/60% of whatever
+       container it lands in, which is right for an element index and wrong for
+       a flex row: it leaves the flow entirely and sizes itself against the
+       pane. Put it back in the flow before giving it a width. */
+    .daemon-fetch .daemon-fetch-progress .progressbar {
+        position: relative;
+        inset-inline-start: 0;
+        width: 100%;
+        margin: 0;
+    }
+    .daemon-fetch--busy .daemon-fetch-progress { display: block; }
+    .daemon-fetch .daemon-fetch-status { margin: 0; }
+    .daemon-fetch-note { margin-top: 24px; }
     .daemon-fetch .daemon-fetch-status:empty { display: none; }
     .daemon-fetch .daemon-fetch-status.error { color: var(--error-color); }
 {% endcss %}

@@ -7,7 +7,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Covers the parts of the WAD service that don't need a booted Craft: the
- * magic-number check every other path depends on.
+ * magic-number check every other path depends on, and the naming the selector
+ * is built from.
  */
 class WadsTest extends TestCase
 {
@@ -73,6 +74,54 @@ class WadsTest extends TestCase
     public function testRejectsDirectory(): void
     {
         $this->assertFalse((new Wads())->isValidWad($this->dir));
+    }
+
+    public function testNamesKnownIwads(): void
+    {
+        $this->assertSame('Freedoom: Phase 1', Wads::nameFor('/wads/freedoom1.wad'));
+        $this->assertSame('Doom II', Wads::nameFor('/wads/DOOM2.WAD'));
+    }
+
+    /**
+     * Guessing a title from an unknown filename would be inventing one, so an
+     * unrecognised WAD is called what it is called.
+     */
+    public function testNamesUnknownWadsAfterTheirFile(): void
+    {
+        $this->assertSame('sunlust', Wads::nameFor('/wads/sunlust.wad'));
+    }
+
+    /**
+     * The menu tells games apart by name, so the icon is the same for all of
+     * them. This is here to catch a rename of the icon rather than a change of
+     * mind about it: an icon name Craft doesn't have throws when the menu
+     * renders, not when it is set.
+     */
+    public function testUsesAKnownCraftIcon(): void
+    {
+        $this->assertFileExists(
+            dirname(__DIR__) . '/vendor/craftcms/cms/src/icons/solid/' . Wads::ICON . '.svg',
+        );
+    }
+
+    /**
+     * Keys end up in a query string, so anything that would need escaping has
+     * to be gone by the time one is built.
+     */
+    public function testBuildsUrlSafeKeys(): void
+    {
+        $this->assertSame('freedoom1', Wads::keyFor('/wads/freedoom1.wad'));
+        $this->assertSame('doom2', Wads::keyFor('/wads/DOOM2.WAD'));
+        $this->assertSame('back-to-saturn-x-e1', Wads::keyFor('/wads/Back to Saturn X (E1).wad'));
+    }
+
+    /**
+     * A filename with nothing usable in it still has to produce a key, because
+     * a WAD with no key is a WAD that can't be selected.
+     */
+    public function testFallsBackWhenAFilenameHasNoUsableCharacters(): void
+    {
+        $this->assertSame('wad', Wads::keyFor('/wads/___.wad'));
     }
 
     private function write(string $name, string $contents): string

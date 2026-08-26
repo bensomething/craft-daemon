@@ -13,32 +13,47 @@
 
     var DaemonWadDownloader = Garnish.Base.extend({
         $container: null,
-        $button: null,
+        $buttons: null,
         $status: null,
         $progress: null,
 
         progressBar: null,
         pollTimeout: null,
         running: false,
+        action: null,
 
         init: function (container) {
             this.$container = $(container);
-            this.$button = this.$container.find('.daemon-fetch-btn');
+            this.$buttons = this.$container.find('.daemon-fetch-btn');
             this.$status = this.$container.find('.daemon-fetch-status');
             this.$progress = this.$container.find('.daemon-fetch-progress');
 
             this.progressBar = new Craft.ProgressBar(this.$progress);
 
-            this.addListener(this.$button, 'click', 'fetch');
+            this.addListener(this.$buttons, 'click', 'fetch');
         },
 
-        fetch: function () {
+        /**
+         * Starts whichever download was asked for. Every button is disabled
+         * for the duration, not just the one pressed: the two downloads share
+         * one progress key, so running both at once would have them overwrite
+         * each other's percentages.
+         */
+        fetch: function (ev) {
             if (this.running) {
                 return;
             }
 
+            var action = $(ev.currentTarget).data('daemon-action');
+
+            if (!action) {
+                return;
+            }
+
             this.running = true;
-            this.$button.addClass('disabled').attr('aria-disabled', 'true');
+            this.action = action;
+            this.$container.addClass('daemon-fetch--busy');
+            this.$buttons.addClass('disabled').attr('aria-disabled', 'true');
             this.setStatus(Craft.t('daemon', 'Starting download…'));
 
             this.progressBar.setProgressPercentage(0);
@@ -48,7 +63,7 @@
 
             var self = this;
 
-            Craft.sendActionRequest('POST', 'daemon/wad/fetch')
+            Craft.sendActionRequest('POST', action)
                 .then(function (response) {
                     self.succeed(response.data);
                 })
@@ -75,7 +90,7 @@
                     if (data.status === 'downloading' && data.total > 0) {
                         var percent = Math.round((data.downloaded / data.total) * 100);
                         self.progressBar.setProgressPercentage(percent);
-                        self.setStatus(Craft.t('daemon', 'Downloading Freedoom: {percent}%', {percent: percent}));
+                        self.setStatus(Craft.t('daemon', 'Downloading: {percent}%', {percent: percent}));
                     }
                 })
                 .catch(function () {
@@ -92,8 +107,8 @@
         succeed: function (data) {
             this.stop();
             this.progressBar.setProgressPercentage(100);
-            this.setStatus(Craft.t('daemon', 'Freedoom installed. Reloading…'));
-            Craft.cp.displayNotice(Craft.t('daemon', 'Freedoom installed.'));
+            this.setStatus(Craft.t('daemon', 'Installed. Reloading…'));
+            Craft.cp.displayNotice(data.message || Craft.t('daemon', 'Installed.'));
 
             // The WAD list and the "no WADs" message are both rendered server
             // side, so a reload is the honest way to show the new state.
@@ -105,7 +120,8 @@
         fail: function (message) {
             this.stop();
             this.progressBar.hideProgressBar();
-            this.$button.removeClass('disabled').removeAttr('aria-disabled');
+            this.$container.removeClass('daemon-fetch--busy');
+            this.$buttons.removeClass('disabled').removeAttr('aria-disabled');
             this.setStatus(message || Craft.t('daemon', 'The download failed.'), true);
             Craft.cp.displayError(message || Craft.t('daemon', 'The download failed.'));
         },
