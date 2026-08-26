@@ -1,5 +1,10 @@
 # Release Notes for Daemon
 
+## 1.0.0-beta.2 - 2026-08-26
+
+### Changed
+- `daemon/wad/fetch` is now `daemon/wad/freedoom`. Both download commands name the game they install, rather than one naming the action and the other a licence. The settings screen buttons are unaffected.
+
 ## 1.0.0-beta.1 - 2026-08-26
 
 ### Added

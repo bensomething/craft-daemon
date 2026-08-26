@@ -24,7 +24,7 @@ class WadController extends Controller
      * redistribution questions. The archive is verified against a checksum pinned
      * in the plugin source before anything is written.
      */
-    public function actionFetch(): int
+    public function actionFreedoom(): int
     {
         $wads = Plugin::getInstance()->getWads();
 
@@ -89,7 +89,7 @@ class WadController extends Controller
         $available = $wads->getAvailableWads();
 
         if ($available === []) {
-            $this->stdout('No WADs found. Run `craft daemon/wad/fetch` to install Freedoom.' . PHP_EOL, Console::FG_YELLOW);
+            $this->stdout('No WADs found. Run `craft daemon/wad/freedoom` to install it.' . PHP_EOL, Console::FG_YELLOW);
 
             return ExitCode::OK;
         }

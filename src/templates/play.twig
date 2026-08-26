@@ -63,7 +63,7 @@
         </div>
     {% elseif wad is null %}
         <div class="pane">
-            <p>{{ 'No WAD is available. Run craft daemon/wad/fetch to install Freedoom, or point the plugin at a WAD you already have.'|t('daemon') }}</p>
+            <p>{{ 'No WAD is available. Run craft daemon/wad/freedoom to install Freedoom, or point the plugin at a WAD you already have.'|t('daemon') }}</p>
             {% if canManageSettings %}
                 <p><a class="go" href="{{ url('settings/plugins/daemon') }}">{{ 'Daemon settings'|t('daemon') }}</a></p>
             {% endif %}

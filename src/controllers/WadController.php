@@ -51,7 +51,7 @@ class WadController extends Controller
      *
      * @throws \yii\web\BadRequestHttpException if the request isn't a POST.
      */
-    public function actionFetch(): Response
+    public function actionFreedoom(): Response
     {
         return $this->download(
             fn(callable $onProgress) => Plugin::getInstance()->getWads()->fetchFreedoom($onProgress),

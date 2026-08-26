@@ -25,7 +25,7 @@ The engine ships with the package as a committed artefact. See [Building the eng
 This plugin ships with the engine, but not the game files. Freedoom is 28.8MB per WAD and that's a lot to put in everyone's `vendor/` for a joke.
 
 ```sh
-php craft daemon/wad/fetch
+php craft daemon/wad/freedoom
 ```
 
 That downloads Freedoom 0.13.0, verifies it against a pinned checksum, and unpacks both IWADs into `storage/daemon/`. Run it once per environment, since `storage/` is not usually deployed.
@@ -70,7 +70,7 @@ It is off by default. Saves are tied to the engine build that wrote them, so bum
 
 | Command | What it does |
 | --- | --- |
-| `daemon/wad/fetch` | Downloads and verifies Freedoom into `storage/daemon/` |
+| `daemon/wad/freedoom` | Downloads and verifies Freedoom into `storage/daemon/` |
 | `daemon/wad/shareware` | Downloads and verifies the Doom shareware IWAD into `storage/daemon/` |
 | `daemon/wad/list` | Lists the WADs the plugin can see, marking the default |
 | `daemon/wad/status` | Prints where it looked, what it found, and how the engine was built |
