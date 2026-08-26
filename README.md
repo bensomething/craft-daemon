@@ -25,15 +25,17 @@ The engine ships with the package as a committed artefact. See [Building the eng
 
 ## Getting a WAD
 
-The engine ships. The WAD does not, because Freedoom is 28.8MB per IWAD and that is a lot to put in everyone's `vendor/` for a joke.
+This plugin ships with the engine, but not the game files. Freedoom is 28.8MB per WAD and that's a lot to put in everyone's `vendor/` for a joke.
 
 ```sh
 php craft daemon/wad/fetch
 ```
 
-That downloads Freedoom 0.13.0, verifies it against a pinned checksum, and unpacks both IWADs into `storage/daemon/`. Run it once per environment, since `storage/` is not usually deployed. The settings screen has buttons for the same downloads, with progress.
+That downloads Freedoom 0.13.0, verifies it against a pinned checksum, and unpacks both IWADs into `storage/daemon/`. Run it once per environment, since `storage/` is not usually deployed.
 
-### The shareware episode
+The settings screen has buttons for the same downloads, with progress.
+
+### Doom's shareware episode
 
 `php craft daemon/wad/shareware`, or the button beside it on the settings screen, fetches and verifies id's Doom shareware IWAD. It is a download rather than a bundle because a Composer package carrying id's game data would make every install a redistributor of it, and would stop this package being wholly MIT and GPL. The WAD it installs is id Software's and is not covered by this plugin's licence.
 
@@ -55,7 +57,7 @@ With more than one WAD, the last breadcrumb becomes a menu of them. The items ar
 
 ## Playing
 
-WASD moves, the arrows turn, Ctrl fires, Space opens, Esc is the menu. The controls are listed on the screen itself. A keyboard is required: the engine reads keys and mouse buttons only, so a touchscreen can fire the weapon and do nothing else.
+<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> moves, the arrows turn, <kbd>Ctrl</kbd> fires, <kbd>Space</kbd> opens, <kbd>Esc</kbd> is the menu. The controls are listed on the screen itself. A keyboard is required: the engine reads keys and mouse buttons only, so a touchscreen can fire the weapon and do nothing else.
 
 ## Savegames
 
@@ -82,7 +84,7 @@ It is off by default. Saves are tied to the engine build that wrote them, so bum
 
 ## Notes for the curious
 
-**Nothing is addressed by path.** WADs live under `@storage`, outside the web root, and reach the browser through a permission-checked controller action; the Game menu passes a key that is resolved against the filesystem. Savegames work the same way, and the user id comes from the session rather than the request, so no id one player holds can reach another's saves.
+**Nothing is addressed by path.** WADs live under `@storage`, outside the web root, and reach the browser through a permission-checked controller action. The Game menu passes a key that is resolved against the filesystem. Savegames work the same way, and the user id comes from the session rather than the request, so no id one player holds can reach another's saves.
 
 **The `.wasm` is fetched to an ArrayBuffer, not streamed.** `cpresources` is served by the site's own nginx or Apache, and plenty of stacks have no `application/wasm` in their MIME map. `instantiateStreaming` would fail there and nowhere else, which is the worst kind of bug to ship.
 
@@ -121,9 +123,7 @@ The compiled artefacts are GPL-2.0-or-later, which is why this package is `MIT A
 
 [dwasm]: https://github.com/GMH-Code/Dwasm
 
-## Why "Daemon"
-
-The package contains no Doom. It ships a WebAssembly build of PrBoom+ and plays Freedoom by default. "Doom" names a game that is not in the box and is a live trademark: using it to describe what the engine is compatible with is fair, using it as a product name is a different thing.
+## Why "Daemon"?
 
 The word comes from the engine's own startup log:
 
