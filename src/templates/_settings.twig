@@ -19,35 +19,12 @@
     } only %}
 </div>
 
-{# Hooked by class, not id. This output is wrapped in View::namespaceInputs(),
-   which rewrites ids but leaves classes alone, while the JS is not namespaced
-   at all. An id selector here silently matches nothing. #}
-<div class="daemon-fetch">
-    <div class="buttons">
-        {# Keyed off storage, which is what these buttons fill, and off the named
-           game: with only Doom stored, "is anything stored" would have the
-           Freedoom button offering to fetch it again. #}
-        <button type="button" class="btn daemon-fetch-btn" data-icon="download"
-                data-daemon-action="daemon/wad/shareware"
-                data-daemon-game="Doom"
-                data-daemon-again-label="{{ 'Re-download Doom'|t('daemon') }}">
-            {{ wads.hasShareware() ? 'Re-download Doom'|t('daemon') : 'Download Doom'|t('daemon') }}
-        </button>
-
-        <button type="button" class="btn daemon-fetch-btn" data-icon="download"
-                data-daemon-action="daemon/wad/freedoom"
-                data-daemon-game="Freedoom"
-                data-daemon-again-label="{{ 'Re-download Freedoom'|t('daemon') }}">
-            {{ wads.hasFreedoom() ? 'Re-download Freedoom'|t('daemon') : 'Download Freedoom'|t('daemon') }}
-        </button>
-    </div>
-
-    {# One bar and status line for both buttons, which is also what keeps two
-       downloads from running at once. #}
-    <div class="daemon-fetch-progress"></div>
-
-    <p class="daemon-fetch-status light"></p>
-</div>
+{# The buttons live on the Utilities screen now: this one is rendered through
+   Html::disableInputs() whenever allowAdminChanges is off, which would disable
+   them and throw away the JavaScript that drives them. #}
+<p class="light daemon-fetch-note">
+    <a class="go" href="{{ url('utilities/daemon-wads') }}">{{ 'Download Freedoom or the Doom shareware episode'|t('daemon') }}</a>
+</p>
 
 {# Named rather than quietly skipped: a WAD in a search directory is somebody
    expecting it to show up. #}
@@ -64,10 +41,6 @@
         {% endfor %}
     </ul>
 {% endif %}
-
-<p class="light daemon-fetch-note">
-    {{ 'Freedoom is free software. The Doom shareware episode is id Software\'s, redistributable but not free, and it is fetched rather than shipped for that reason.'|t('daemon') }}
-</p>
 
 {{ forms.autosuggestField({
     label: 'WAD directory'|t('daemon'),

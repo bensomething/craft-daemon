@@ -7,12 +7,15 @@ use bensomething\daemon\models\Settings;
 use bensomething\daemon\services\Engine;
 use bensomething\daemon\services\Saves;
 use bensomething\daemon\services\Wads;
+use bensomething\daemon\utilities\DownloadWads;
 use bensomething\daemon\web\assets\settings\SettingsAsset;
 use Craft;
 use craft\base\Model;
+use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\events\RegisterUserPermissionsEvent;
 use craft\services\UserPermissions;
+use craft\services\Utilities;
 use craft\web\UrlManager;
 use yii\base\Event;
 
@@ -49,6 +52,12 @@ class Plugin extends \craft\base\Plugin
         parent::init();
 
         $this->registerPermissions();
+
+        // Not inside the CP-request branch below. Registering a component type
+        // is not CP rendering: console commands and permission checks read the
+        // list too, and a utility missing from it is a permission that cannot
+        // be granted.
+        $this->registerUtilities();
 
         if (Craft::$app->getRequest()->getIsCpRequest()) {
             $this->registerCpRoutes();
@@ -116,6 +125,17 @@ class Plugin extends \craft\base\Plugin
             'wadDir' => $wadDir,
             'wadDirMissing' => $wadDir !== null && !is_dir($wadDir),
         ]);
+    }
+
+    private function registerUtilities(): void
+    {
+        Event::on(
+            Utilities::class,
+            Utilities::EVENT_REGISTER_UTILITIES,
+            static function(RegisterComponentTypesEvent $event) {
+                $event->types[] = DownloadWads::class;
+            }
+        );
     }
 
     private function registerCpRoutes(): void

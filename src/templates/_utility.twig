@@ -1,0 +1,43 @@
+{# =========================================================================
+   WAD downloads
+   The Utilities screen's copy of the download buttons.
+
+   Here rather than on the settings screen because Craft renders plugin
+   settings through Html::disableInputs() when allowAdminChanges is off, which
+   disables every button and discards the screen's JavaScript with it.
+   ========================================================================= #}
+
+<p class="light">{{ 'Freedoom is free software and all the engine needs to run. The Doom shareware episode is id Software\'s, redistributable but not free, and is fetched rather than shipped for that reason.'|t('daemon') }}</p>
+
+{# Hooked by class, not id, so the same markup works here and anywhere else
+   the settings asset is registered. #}
+<div class="daemon-fetch">
+    <div class="buttons">
+        {# Keyed off storage, which is what these buttons fill, and off the named
+           game: with only Doom stored, "is anything stored" would have the
+           Freedoom button offering to fetch it again. #}
+        <button type="button" class="btn daemon-fetch-btn" data-icon="download"
+                data-daemon-action="daemon/wad/shareware"
+                data-daemon-game="Doom"
+                data-daemon-again-label="{{ 'Re-download Doom'|t('daemon') }}">
+            {{ wads.hasShareware() ? 'Re-download Doom'|t('daemon') : 'Download Doom'|t('daemon') }}
+        </button>
+
+        <button type="button" class="btn daemon-fetch-btn" data-icon="download"
+                data-daemon-action="daemon/wad/freedoom"
+                data-daemon-game="Freedoom"
+                data-daemon-again-label="{{ 'Re-download Freedoom'|t('daemon') }}">
+            {{ wads.hasFreedoom() ? 'Re-download Freedoom'|t('daemon') : 'Download Freedoom'|t('daemon') }}
+        </button>
+    </div>
+
+    {# One bar and status line for both buttons, which is also what keeps two
+       downloads from running at once. #}
+    <div class="daemon-fetch-progress"></div>
+
+    <p class="daemon-fetch-status light"></p>
+</div>
+
+<p class="light daemon-fetch-note">
+    {{ 'Both land in {dir}. Names and the default game are on the plugin\'s settings screen.'|t('daemon', {dir: wads.getStorageDir()}) }}
+</p>

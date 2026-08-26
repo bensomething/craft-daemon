@@ -123,6 +123,13 @@
 
             var self = this;
 
+            if (!this.$list.length) {
+                // The Utilities screen has the buttons but no list to update.
+                this.release();
+
+                return;
+            }
+
             Craft.sendActionRequest('GET', 'daemon/wad/list')
                 .then(function (response) {
                     self.replaceList(response.data.html);

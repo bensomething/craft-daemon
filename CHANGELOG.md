@@ -1,5 +1,10 @@
 # Release Notes for Daemon
 
+## Unreleased
+
+### Changed
+- The WAD downloads moved from the plugin's settings screen to a **Daemon WADs** utility, with a link in their place. Craft renders plugin settings through `Html::disableInputs()` when `allowAdminChanges` is off, which disabled both buttons and discarded the JavaScript driving them, so on a production install they did nothing at all. Utilities are not subject to that setting. The console commands were never affected.
+
 ## 1.0.0-beta.2 - 2026-08-26
 
 ### Changed
