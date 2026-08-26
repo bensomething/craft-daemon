@@ -17,6 +17,9 @@
         $status: null,
         $progress: null,
 
+        $list: null,
+        $pressed: null,
+
         progressBar: null,
         pollTimeout: null,
         running: false,
@@ -27,6 +30,11 @@
             this.$buttons = this.$container.find('.daemon-fetch-btn');
             this.$status = this.$container.find('.daemon-fetch-status');
             this.$progress = this.$container.find('.daemon-fetch-progress');
+
+            // Outside the fetch container, so it is found from the form
+            // rather than from within: the progress bar and status line live
+            // in here and must survive a swap of the list.
+            this.$list = this.$container.closest('form').find('.daemon-wad-list');
 
             this.progressBar = new Craft.ProgressBar(this.$progress);
 
@@ -52,6 +60,7 @@
 
             this.running = true;
             this.action = action;
+            this.$pressed = $(ev.currentTarget);
             this.$container.addClass('daemon-fetch--busy');
             this.$buttons.addClass('disabled').attr('aria-disabled', 'true');
             this.setStatus(Craft.t('daemon', 'Starting download…'));
@@ -104,24 +113,120 @@
                 });
         },
 
+        /**
+         * Shows the new WAD without reloading.
+         *
+         * The page is a full page form carrying data-confirm-unload, so a
+         * reload part way through editing either discards the names the admin
+         * has typed or stops to ask them about it. Neither is a reasonable
+         * answer to pressing Download, so the list is re-rendered by the
+         * server and swapped in instead.
+         */
         succeed: function (data) {
             this.stop();
             this.progressBar.setProgressPercentage(100);
-            this.setStatus(Craft.t('daemon', 'Installed. Reloading…'));
+            this.setStatus(Craft.t('daemon', 'Installed.'));
             Craft.cp.displayNotice(data.message || Craft.t('daemon', 'Installed.'));
 
-            // The WAD list and the "no WADs" message are both rendered server
-            // side, so a reload is the honest way to show the new state.
-            setTimeout(function () {
-                window.location.reload();
-            }, 600);
+            // The button offered a download and there is now nothing left to
+            // download, so it offers the download again instead.
+            if (this.$pressed && this.$pressed.data('daemon-again-label')) {
+                this.$pressed.text(this.$pressed.data('daemon-again-label'));
+            }
+
+            var self = this;
+
+            Craft.sendActionRequest('GET', 'daemon/wad/list')
+                .then(function (response) {
+                    self.replaceList(response.data.html);
+                })
+                .catch(function () {
+                    // The download itself worked, which is what the notice
+                    // said. Only the list on screen is stale, and saying so is
+                    // better than undoing a notice that was true.
+                    self.setStatus(Craft.t('daemon', 'Installed. Reload to see it listed.'));
+                })
+                .then(function () {
+                    self.release();
+                });
+        },
+
+        /**
+         * Swaps in the re-rendered list, keeping anything typed but not saved.
+         *
+         * The markup comes back as the server would have rendered it, which
+         * means the name fields hold what was last saved rather than what is
+         * on screen. Carrying the current values across keeps a half finished
+         * rename from disappearing because somebody pressed Download.
+         */
+        replaceList: function (html) {
+            if (!this.$list.length) {
+                return;
+            }
+
+            var typed = {};
+
+            this.$list.find('textarea[name]').each(function () {
+                typed[this.name] = this.value;
+            });
+
+            var $form = this.$container.closest('form');
+            var clean = this.isFormClean($form);
+
+            this.$list.html(html);
+
+            this.$list.find('textarea[name]').each(function () {
+                if (typed[this.name] !== undefined) {
+                    this.value = typed[this.name];
+                }
+            });
+
+            // A form that had no unsaved changes before the swap still has
+            // none: a WAD appearing is the server's news, not the admin's
+            // edit. Left alone, the new rows would read as changes and the
+            // page would ask about them on the way out.
+            if (clean) {
+                this.markFormClean($form);
+            }
+        },
+
+        /**
+         * Craft decides whether to warn on leaving by comparing the form
+         * against the serialization it took on load, through a serializer the
+         * form may have replaced. Both halves of that are read here rather
+         * than assumed.
+         */
+        isFormClean: function ($form) {
+            if (!$form.length || !$form.data('initialSerializedValue')) {
+                return false;
+            }
+
+            return $form.data('initialSerializedValue') === this.serializeForm($form);
+        },
+
+        markFormClean: function ($form) {
+            $form.data('initialSerializedValue', this.serializeForm($form));
+        },
+
+        serializeForm: function ($form) {
+            var serializer = $form.data('serializer');
+
+            return typeof serializer === 'function' ? serializer() : $form.serialize();
+        },
+
+        /**
+         * Hands the buttons back and clears the bar, however the download
+         * ended.
+         */
+        release: function () {
+            this.progressBar.hideProgressBar();
+            this.$container.removeClass('daemon-fetch--busy');
+            this.$buttons.removeClass('disabled').removeAttr('aria-disabled');
         },
 
         fail: function (message) {
             this.stop();
-            this.progressBar.hideProgressBar();
-            this.$container.removeClass('daemon-fetch--busy');
-            this.$buttons.removeClass('disabled').removeAttr('aria-disabled');
+            this.release();
             this.setStatus(message || Craft.t('daemon', 'The download failed.'), true);
             Craft.cp.displayError(message || Craft.t('daemon', 'The download failed.'));
         },

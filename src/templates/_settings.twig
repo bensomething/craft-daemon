@@ -7,79 +7,19 @@
 {% endif %}
 
 {% set available = wads.getAvailableWads() %}
-{% set stored = wads.getStoredWads() %}
 {% set storageDir = wads.getStorageDir() %}
 
 <h2 class="daemon-heading">{{ 'WADs'|t('daemon') }}</h2>
 
-{% if available %}
-    <p class="light">{{ 'Everything the plugin can see. The default is what loads when you open the Daemon screen, and the Game menu switches between them. Leave a name empty to use the one shown.'|t('daemon') }}</p>
-
-    {# Craft's editable table markup, written out rather than built with
-       forms.editableTableField.
-
-       The component keys its cells as name[rowId][colId], which would turn a
-       flat map of names into a map of single-key maps, and it takes one
-       placeholder per column. Both matter here: the rows are files on disk
-       rather than rows a person adds, and each one needs its own placeholder,
-       because the placeholder is the name the plugin would pick on its own.
-
-       No Craft.EditableTable is initialised. Its job is adding, deleting and
-       reordering rows, and none of that applies to a list the filesystem
-       decides. #}
-    <table id="daemon-wad-names" class="editable fullwidth daemon-wad-table">
-        <col>
-        <col class="daemon-col-name">
-        <col>
-        <thead>
-            <tr>
-                <th id="daemon-wad-names-default" scope="col" class="checkbox-cell thin">{{ 'Default'|t('daemon') }}</th>
-                <th id="daemon-wad-names-name" scope="col" class="singleline-cell textual daemon-name-cell">{{ 'Name'|t('daemon') }}</th>
-                <th id="daemon-wad-names-file" scope="col" class="heading-cell">{{ 'File'|t('daemon') }}</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for wad in available %}
-                <tr>
-                    {# Checked off the list order rather than off the setting.
-                       The service sorts the chosen default first, so the first
-                       row is the effective default whether or not one was ever
-                       picked, and the control shows what is actually happening
-                       rather than what was last saved. #}
-                    <td class="checkbox-cell thin">
-                        {{ forms.radio({
-                            id: 'defaultWad-' ~ wad.key,
-                            name: 'defaultWad',
-                            value: wad.key,
-                            checked: loop.first,
-                            label: 'Load {name} by default'|t('daemon', {name: wad.name}),
-                            containerAttributes: {class: 'visually-hidden'},
-                        }) }}
-                    </td>
-                    <td class="singleline-cell textual daemon-name-cell">
-                        {{ tag('textarea', {
-                            name: 'wadNames[' ~ wad.key ~ ']',
-                            rows: 1,
-                            placeholder: wad.defaultName,
-                            text: settings.wadNames[wad.key] ?? '',
-                            aria: {labelledby: 'daemon-wad-names-name'},
-                        }) }}
-                    </td>
-                    {# The path is the row's header: it is what identifies the
-                       row, so a screen reader reading the name field announces
-                       which file it belongs to. #}
-                    <th scope="row" class="heading-cell">
-                        <code>{{ wad.path }}</code>
-                    </th>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-{% else %}
-    <p class="light">
-        {{ 'No WADs found yet. Freedoom is a free, BSD licensed replacement for the id WADs, and it is all this needs to run.'|t('daemon') }}
-    </p>
-{% endif %}
+{# Swapped in place after a download. Hooked by class rather than id for the
+   same reason as the fetch container below: ids in here are namespaced, the
+   JS is not. #}
+<div class="daemon-wad-list">
+    {% include 'daemon/_wads' with {
+        available: available,
+        settings: settings,
+    } only %}
+</div>
 
 {# Hooked by class, not id. This template's output is wrapped in
    View::namespaceInputs(), which rewrites ids (daemon-fetch becomes
@@ -88,16 +28,21 @@
    nothing. #}
 <div class="daemon-fetch">
     <div class="buttons">
+        {# Keyed off storage, not off everything found: a WAD sitting in some
+           other search directory is no reason to say the download already
+           happened, and it is this directory the button fills. Named too,
+           rather than "is anything stored": with only Doom in storage the
+           Freedoom button would otherwise offer to fetch it again. #}
         <button type="button" class="btn daemon-fetch-btn" data-icon="download"
-                data-daemon-action="daemon/wad/shareware">
-            {{ 'Download Doom (shareware)'|t('daemon') }}
+                data-daemon-action="daemon/wad/shareware"
+                data-daemon-again-label="{{ 'Re-download Doom'|t('daemon') }}">
+            {{ wads.hasShareware() ? 'Re-download Doom'|t('daemon') : 'Download Doom'|t('daemon') }}
         </button>
 
-        {# Keyed off storage, not off everything found: having a WAD from some
-           other directory is no reason to say you already have Freedoom. #}
         <button type="button" class="btn daemon-fetch-btn" data-icon="download"
-                data-daemon-action="daemon/wad/fetch">
-            {{ stored ? 'Download Freedoom again'|t('daemon') : 'Download Freedoom'|t('daemon') }}
+                data-daemon-action="daemon/wad/fetch"
+                data-daemon-again-label="{{ 'Re-download Freedoom'|t('daemon') }}">
+            {{ wads.hasFreedoom() ? 'Re-download Freedoom'|t('daemon') : 'Download Freedoom'|t('daemon') }}
         </button>
     </div>
 
@@ -109,6 +54,23 @@
 
     <p class="daemon-fetch-status light"></p>
 </div>
+
+{# Named rather than quietly skipped. A WAD sitting in a search directory is
+   somebody expecting it to show up, and leaving them to conclude the plugin
+   cannot see the file is worse than saying why it is not on offer. #}
+{% set unsupported = wads.getUnsupportedWads() %}
+
+{% if unsupported %}
+    <p class="light daemon-fetch-note">
+        {{ 'Found but not offered. These are Doom engine games, but the engine here runs Doom itself and nothing else.'|t('daemon') }}
+    </p>
+
+    <ul class="light daemon-unsupported">
+        {% for path, game in unsupported %}
+            <li><code>{{ path }}</code> ({{ game }})</li>
+        {% endfor %}
+    </ul>
+{% endif %}
 
 <p class="light daemon-fetch-note">
     {{ 'Freedoom is free software. The Doom shareware episode is id Software\'s, redistributable but not free, and it is fetched rather than shipped for that reason.'|t('daemon') }}
@@ -155,6 +117,10 @@
     .daemon-heading { margin-top: 0; }
     .warning + .daemon-heading { margin-top: 14px; }
     .daemon-wad-table { margin-top: 12px; }
+    /* Craft's CP strips list markers, and this one reads as a list of files
+       rather than a paragraph, so it asks for them back. */
+    .daemon-unsupported { margin: 0 0 14px; padding-left: 18px; list-style: disc; }
+    .daemon-unsupported li { margin-top: 2px; }
     /* Fixed rather than a percentage: without a width of its own the name
        column collapses to whatever the paths leave it, which on a long storage
        path is nothing. min-width as well as width, because the table lays out

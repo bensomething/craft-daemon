@@ -1,0 +1,85 @@
+{# =========================================================================
+   WAD list
+   Every WAD the plugin can see, with its name and which one loads by default.
+
+   Its own file because the settings screen swaps it in place after a download
+   rather than reloading: the page is a form with data-confirm-unload on it, so
+   a reload mid-edit either loses names the admin has typed or stops to ask
+   about them.
+
+   Rendered on its own by daemon/wad/list, which has to re-apply the `settings`
+   namespace Craft wraps plugin settings in. Without that the inputs come back
+   named wadNames[...] rather than settings[wadNames][...] and saving quietly
+   stops persisting anything they hold.
+   ========================================================================= #}
+
+{% import '_includes/forms.twig' as forms %}
+
+{% if available %}
+    <p class="light">{{ 'Everything the plugin can see. The default is what loads when you open the Daemon screen, and the game dropdown in the breadcrumbs switches between them. Leave a name empty to use the one shown.'|t('daemon') }}</p>
+
+    {# Craft's editable table markup, written out rather than built with
+       forms.editableTableField.
+
+       The component keys its cells as name[rowId][colId], which would turn a
+       flat map of names into a map of single-key maps, and it takes one
+       placeholder per column. Both matter here: the rows are files on disk
+       rather than rows a person adds, and each one needs its own placeholder,
+       because the placeholder is the name the plugin would pick on its own.
+
+       No Craft.EditableTable is initialised. Its job is adding, deleting and
+       reordering rows, and none of that applies to a list the filesystem
+       decides. #}
+    <table id="daemon-wad-names" class="editable fullwidth daemon-wad-table">
+        <col>
+        <col class="daemon-col-name">
+        <col>
+        <thead>
+            <tr>
+                <th id="daemon-wad-names-default" scope="col" class="checkbox-cell thin">{{ 'Default'|t('daemon') }}</th>
+                <th id="daemon-wad-names-name" scope="col" class="singleline-cell textual daemon-name-cell">{{ 'Name'|t('daemon') }}</th>
+                <th id="daemon-wad-names-file" scope="col" class="heading-cell">{{ 'File'|t('daemon') }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for wad in available %}
+                <tr>
+                    {# Checked off the list order rather than off the setting.
+                       The service sorts the chosen default first, so the first
+                       row is the effective default whether or not one was ever
+                       picked, and the control shows what is actually happening
+                       rather than what was last saved. #}
+                    <td class="checkbox-cell thin">
+                        {{ forms.radio({
+                            id: 'defaultWad-' ~ wad.key,
+                            name: 'defaultWad',
+                            value: wad.key,
+                            checked: loop.first,
+                            label: 'Load {name} by default'|t('daemon', {name: wad.name}),
+                            containerAttributes: {class: 'visually-hidden'},
+                        }) }}
+                    </td>
+                    <td class="singleline-cell textual daemon-name-cell">
+                        {{ tag('textarea', {
+                            name: 'wadNames[' ~ wad.key ~ ']',
+                            rows: 1,
+                            placeholder: wad.defaultName,
+                            text: settings.wadNames[wad.key] ?? '',
+                            aria: {labelledby: 'daemon-wad-names-name'},
+                        }) }}
+                    </td>
+                    {# The path is the row's header: it is what identifies the
+                       row, so a screen reader reading the name field announces
+                       which file it belongs to. #}
+                    <th scope="row" class="heading-cell">
+                        <code>{{ wad.path }}</code>
+                    </th>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p class="light">
+        {{ 'No WADs found yet. Freedoom is a free, BSD licensed replacement for the id WADs, and it is all this needs to run.'|t('daemon') }}
+    </p>
+{% endif %}

@@ -114,6 +114,31 @@ class Wads extends Component
      * icon that varies without carrying information is just noise with a
      * gradient on it.
      */
+    /**
+     * IWADs belonging to games this engine does not implement.
+     *
+     * These are genuine IWADs and pass every structural check there is, because
+     * Raven and Rogue built their games on the Doom engine and shipped the same
+     * container. PrBoom+ implements Doom's game logic and nothing else, so
+     * handing it one of these gets a broken game or a crash rather than
+     * Heretic. Better to leave them out of the menu than to offer a game that
+     * cannot start.
+     *
+     * Matched by filename, which is the same trust this service already places
+     * in a name to decide what a game is called. A renamed copy still gets
+     * through and still fails at the engine. Catching that would mean reading
+     * the lump directory for game specific entries, which is a great deal of
+     * archaeology for a file nobody renames by accident.
+     */
+    private const UNSUPPORTED_WADS = [
+        'heretic.wad' => 'Heretic',
+        'heretic1.wad' => 'Heretic (shareware)',
+        'hexen.wad' => 'Hexen',
+        'hexdd.wad' => 'Hexen: Deathkings of the Dark Citadel',
+        'strife0.wad' => 'Strife (demo)',
+        'strife1.wad' => 'Strife',
+    ];
+
     public const ICON = 'floppy-disk';
 
     /**
@@ -177,6 +202,10 @@ class Wads extends Component
                 }
 
                 $seen[$real] = true;
+
+                if (!$this->isSupportedIwad($path)) {
+                    continue;
+                }
 
                 $key = $this->uniqueKey($path, $wads);
                 $defaultName = self::nameFor($path);
@@ -298,6 +327,79 @@ class Wads extends Component
     public function getStoredWads(): array
     {
         return $this->findWads($this->getStorageDir());
+    }
+
+    /**
+     * Whether the Doom shareware episode is already in storage.
+     *
+     * Matched on the filename `fetchShareware()` writes rather than on the
+     * contents, and compared without regard to case: a copy put there by hand
+     * is as likely to be DOOM1.WAD as doom1.wad, and on a case insensitive
+     * filesystem those are the same file anyway.
+     */
+    public function hasShareware(): bool
+    {
+        foreach ($this->getStoredWads() as $path) {
+            if (strcasecmp(basename($path), self::SHAREWARE_FILENAME) === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether either Freedoom IWAD is already in storage.
+     *
+     * Either, not both: the two phases are separate games and having one of
+     * them is enough to make the download a repeat. The pattern is the one
+     * `fetchFreedoom()` pulls out of the archive.
+     */
+    public function hasFreedoom(): bool
+    {
+        foreach ($this->getStoredWads() as $path) {
+            if (preg_match('/^freedoom\d\.wad$/i', basename($path)) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether this is an IWAD the engine can actually run.
+     *
+     * Only ever asked of files that already carry the IWAD magic number, so
+     * the question is which game it belongs to rather than whether it is a
+     * WAD at all.
+     */
+    public function isSupportedIwad(string $path): bool
+    {
+        return !isset(self::UNSUPPORTED_WADS[strtolower(basename($path))]);
+    }
+
+    /**
+     * Every IWAD found that belongs to another game, so the settings screen
+     * can say why a file that is plainly there is not in the menu. Silence
+     * would read as the plugin failing to find it.
+     *
+     * @return array<string, string> Path, mapped to the game it belongs to.
+     */
+    public function getUnsupportedWads(): array
+    {
+        $found = [];
+
+        foreach ($this->getSearchDirs() as $dir) {
+            foreach ($this->findWads($dir, self::MAGIC_IWAD) as $path) {
+                $game = self::UNSUPPORTED_WADS[strtolower(basename($path))] ?? null;
+
+                if ($game !== null) {
+                    $found[$path] = $game;
+                }
+            }
+        }
+
+        return $found;
     }
 
     /**

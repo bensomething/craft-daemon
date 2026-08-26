@@ -5,6 +5,7 @@ namespace bensomething\daemon\controllers;
 use bensomething\daemon\Plugin;
 use Craft;
 use craft\web\Controller;
+use craft\web\View;
 use Throwable;
 use yii\web\Response;
 
@@ -136,6 +137,42 @@ class WadController extends Controller
             'message' => $message,
             'wads' => $written,
         ]);
+    }
+
+    /**
+     * Re-renders the WAD list for the settings screen.
+     *
+     * So a finished download can show its result without reloading the page.
+     * The settings screen is a full page form carrying data-confirm-unload, so
+     * a reload part way through editing either discards names the admin has
+     * typed or stops to ask them about it, and neither is a reasonable answer
+     * to pressing Download.
+     *
+     * The `settings` namespace is not decoration. Craft renders plugin
+     * settings inside View::namespaceInputs() with that namespace, so the
+     * inputs on the page are named settings[wadNames][...]. Rendering the same
+     * template on its own produces wadNames[...] instead, which posts to
+     * nothing and loses every name on the next save.
+     *
+     * @throws \yii\base\Exception if the template can't be rendered.
+     * @throws \yii\web\BadRequestHttpException if the request doesn't accept JSON.
+     * @throws \Twig\Error\LoaderError if the template is missing.
+     * @throws \Twig\Error\RuntimeError if rendering it fails.
+     * @throws \Twig\Error\SyntaxError if it doesn't parse.
+     */
+    public function actionList(): Response
+    {
+        $this->requireAcceptsJson();
+
+        $view = Craft::$app->getView();
+        $plugin = Plugin::getInstance();
+
+        $html = $view->namespaceInputs(fn() => $view->renderTemplate('daemon/_wads', [
+            'available' => $plugin->getWads()->getAvailableWads(),
+            'settings' => $plugin->getSettings(),
+        ], View::TEMPLATE_MODE_CP), 'settings');
+
+        return $this->asJson(['html' => $html]);
     }
 
     /**
