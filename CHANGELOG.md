@@ -1,5 +1,10 @@
 # Release Notes for Daemon
 
+## Unreleased
+
+### Fixed
+- The compiled engine no longer carries the absolute path of the machine that built it. `assert()` bakes `__FILE__` into the binary and CMake compiles with absolute paths, so `index.wasm` shipped with a developer's home directory in it. The build now compiles with `-ffile-prefix-map` and refuses to install an artefact containing the build path.
+
 ## 1.0.0-beta.3 - 2026-08-26
 
 ### Added

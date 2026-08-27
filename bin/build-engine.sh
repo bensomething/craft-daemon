@@ -96,6 +96,7 @@ patch_source "CMakeLists.txt" \
     "            -sEXPORTED_RUNTIME_METHODS=['FS','callMain','addRunDependency','removeRunDependency'] \\\\\n            -sEMULATE_FUNCTION_POINTER_CASTS=1 \\\\" \
     "export FS for runtime WAD loading"
 
+
 # ---------------------------------------------------------------------------
 # Stage 1: the engine's resource WAD
 #
@@ -156,7 +157,13 @@ rm -rf "${BUILD_DIR}/build_wasm"
 mkdir -p "${BUILD_DIR}/build_wasm"
 cd "${BUILD_DIR}/build_wasm"
 
-emcmake cmake .. -DCMAKE_BUILD_TYPE=Release >/dev/null
+# -ffile-prefix-map rewrites __FILE__, which is how the machine that ran this
+# script would otherwise end up in a published artefact: assert() bakes the
+# compiler's absolute source path into the binary, and CMake compiles with
+# absolute paths. Mapping the checkout away leaves "src/p_saveg.c". The
+# CMakeLists appends to CMAKE_C_FLAGS rather than setting it, so this survives.
+emcmake cmake .. -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_C_FLAGS="-ffile-prefix-map=${BUILD_DIR}/=" >/dev/null
 
 CORES="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
 JOBS=$(( CORES > 3 ? CORES - 2 : 1 ))
@@ -173,6 +180,22 @@ for f in index.js index.wasm index.data; do
         exit 1
     fi
 done
+
+# The flag above is the fix; this is the check that it worked. A path leaking
+# into a committed artefact is invisible until someone runs strings on it, so
+# the build refuses to install one rather than trusting the flag.
+for f in index.js index.wasm index.data; do
+    for leak in "${BUILD_DIR}" "${PLUGIN_DIR}"; do
+        if LC_ALL=C grep -aqF -- "${leak}" "${BUILD_DIR}/build_wasm/${f}"; then
+            echo "error: ${f} contains the build path ${leak}." >&2
+            echo "       -ffile-prefix-map did not cover it. Find the source and fix it" >&2
+            echo "       before committing: these artefacts are published." >&2
+            exit 1
+        fi
+    done
+done
+
+echo "    no build paths in the artefacts"
 
 mkdir -p "${OUT_DIR}"
 rm -f "${OUT_DIR}"/websockets-doom.* 2>/dev/null || true
