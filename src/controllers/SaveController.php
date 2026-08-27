@@ -12,6 +12,7 @@ use craft\helpers\StringHelper;
 use craft\web\Controller;
 use Throwable;
 use yii\web\BadRequestHttpException;
+use yii\web\HttpException;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 use yii\web\ServerErrorHttpException;
@@ -218,6 +219,8 @@ class SaveController extends Controller
      * PrBoom save directory puts everything where it expects.
      *
      * @throws NotFoundHttpException if the user has no saves at all.
+     * @throws HttpException if there is more to archive than the ceiling allows.
+     * @throws ServerErrorHttpException if the archive can't be opened.
      * @throws \yii\base\Exception if the temporary file can't be written.
      */
     public function actionDownloadAll(): Response
@@ -249,11 +252,17 @@ class SaveController extends Controller
                 // A ceiling rather than a promise: the newest of each slot
                 // cannot realistically reach this, and an archive built without
                 // one is a way to ask a server to hold an unbounded string.
+                //
+                // Thrown rather than returned through asFailure(), which hands
+                // back null for anything that does not accept JSON. This action
+                // is reached by following a link, so the browser asks for HTML,
+                // and a null from a method declared to return a Response is a
+                // TypeError rather than the message it was meant to be.
                 if ($bytes > self::MAX_ARCHIVE_BYTES) {
                     $zip->close();
                     FileHelper::unlink($path);
 
-                    return $this->asFailure(Craft::t('daemon', 'There are too many saves to archive at once.'));
+                    throw new HttpException(413, Craft::t('daemon', 'There are too many saves to archive at once.'));
                 }
 
                 $zip->addFromString($wadKey . '/' . $save->enginePath, $contents);
