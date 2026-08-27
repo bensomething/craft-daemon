@@ -2,9 +2,9 @@
 
 namespace bensomething\daemon\services;
 
+use bensomething\daemon\helpers\UserStorage;
 use bensomething\daemon\models\Save;
 use Craft;
-use craft\elements\User;
 use craft\helpers\FileHelper;
 use RuntimeException;
 use yii\base\Component;
@@ -56,43 +56,14 @@ class Saves extends Component
      * Deletes the saves of users who no longer exist.
      *
      * Saves are filed under a user id, and nothing on disk knows when that user
-     * goes away, so the directory would outlive them for good. Swept rather
-     * than hooked to a delete event: users are soft deleted first and can be
-     * restored, so acting on the delete would take the saves of somebody who
-     * came back, and a sweep also clears orphans left by any route.
+     * goes away, so the directory would outlive them for good.
      *
      * @return int How many users' saves were removed.
      * @throws \yii\base\ErrorException if a directory can't be deleted.
      */
     public function deleteOrphaned(): int
     {
-        $root = $this->getStorageDir();
-
-        if (!is_dir($root)) {
-            return 0;
-        }
-
-        $removed = 0;
-
-        foreach ((array)glob($root . '/*', GLOB_ONLYDIR) as $dir) {
-            $userId = basename($dir);
-
-            if (!ctype_digit($userId)) {
-                continue;
-            }
-
-            // Any status, including suspended and inactive: only a user who is
-            // really gone should lose their saves. A soft deleted one is still
-            // a row, so they keep theirs until Craft clears them out for good.
-            if (User::find()->id((int)$userId)->status(null)->exists()) {
-                continue;
-            }
-
-            FileHelper::removeDirectory($dir);
-            $removed++;
-        }
-
-        return $removed;
+        return UserStorage::sweepOrphans($this->getStorageDir());
     }
 
     /**
@@ -244,8 +215,8 @@ class Saves extends Component
         [$engineDir, $engineFile, $timestamp] = $parts;
 
         if (
-            !$this->isSafeSegment($engineDir) ||
-            !$this->isSafeSegment($engineFile) ||
+            !UserStorage::isSafeSegment($engineDir) ||
+            !UserStorage::isSafeSegment($engineFile) ||
             !ctype_digit($timestamp)
         ) {
             return null;
@@ -260,25 +231,11 @@ class Saves extends Component
      */
     private function getGameDir(int $userId, string $wadKey): ?string
     {
-        if ($userId <= 0 || !$this->isSafeSegment($wadKey)) {
+        if ($userId <= 0 || !UserStorage::isSafeSegment($wadKey)) {
             return null;
         }
 
         return $this->getStorageDir() . '/' . $userId . '/' . $wadKey;
-    }
-
-    /**
-     * Whether a path segment is one this service will build a path out of. Stricter
-     * than "contains no slashes": every segment the plugin generates is a WAD key,
-     * an uppercase hex digest or an engine filename.
-     */
-    private function isSafeSegment(string $segment): bool
-    {
-        // The leading underscore is allowed for one reason: it is the
-        // placeholder this service uses when the engine wrote a save with no
-        // directory of its own.
-        return (bool)preg_match('/^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}$/', $segment)
-            && !str_contains($segment, '..');
     }
 
     /**
@@ -316,7 +273,7 @@ class Saves extends Component
         }
 
         foreach ($segments as $segment) {
-            if (!$this->isSafeSegment($segment)) {
+            if (!UserStorage::isSafeSegment($segment)) {
                 return null;
             }
         }
