@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Changed
+- The engine is rebuilt from the same pinned `v2.2.0`, with a second patch: the skill is now printed at every level exit. Neither `-levelstat` nor `-statdump` records it, and a board pooling Nightmare times with I'm Too Young To Die ones is not a board. Nothing that decides savegame compatibility changed, so existing saves still load.
+
 ### Fixed
 - The compiled engine no longer carries the absolute path of the machine that built it. `assert()` bakes `__FILE__` into the binary and CMake compiles with absolute paths, so `index.wasm` shipped with a developer's home directory in it. The build now compiles with `-ffile-prefix-map` and refuses to install an artefact containing the build path.
 

@@ -5,5 +5,5 @@
     "engine": "PrBoom+ / PrBoomX (Dwasm)",
     "license": "GPL-2.0-or-later",
     "emscripten": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.8-git",
-    "built": "2026-08-27T07:28:40Z"
+    "built": "2026-08-27T07:30:06Z"
 }

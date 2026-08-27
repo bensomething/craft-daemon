@@ -112,7 +112,13 @@ bin/build-engine.sh
 
 That clones [GMH-Code/Dwasm][dwasm] at a pinned tag and builds in two stages. A native stage generates `prboomx.wad`, the engine's mandatory resource WAD, and checks it against the SHA-256 upstream publishes. The Emscripten stage then produces `index.js`, `index.wasm` and `index.data` into `src/web/assets/daemon/dist/engine/`. Commit what it writes, about 2.5MB.
 
-Exactly one patch is applied, and it exists because of the WAD policy above: Dwasm expects an IWAD baked into `index.data` at build time, so the build exports `FS` and the host writes whichever WAD the admin configured into the filesystem at runtime instead. One build serves every WAD, and the package carries no game content. The patch is matched literally, so the build fails loudly if upstream moves rather than quietly producing an engine the host cannot drive.
+Two patches are applied, both one line, both matched literally so the build fails loudly if upstream moves rather than quietly producing an engine the host cannot drive.
+
+The first exists because of the WAD policy above: Dwasm expects an IWAD baked into `index.data` at build time, so the build exports `FS` and the host writes whichever WAD the admin configured into the filesystem at runtime instead. One build serves every WAD, and the package carries no game content.
+
+The second prints the skill at every level exit, for the leaderboard. `gameskill` is a global in scope at that point and `lprintf.h` is already included, so it is one statement and it changes nothing about how the game plays. The host script matches the wording on stdout, so the two have to move together.
+
+Neither touches a type, a struct or a header, which matters more than it sounds: `P_ArchivePlayers()` writes `player_t` into a savegame with a raw `memcpy`, so a build that laid that struct out differently would orphan every save on the install.
 
 GL4ES is deliberately not built, so the software renderer is used. Upstream documents the OpenGL path as corrupting floor textures.
 

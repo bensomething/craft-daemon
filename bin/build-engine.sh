@@ -59,8 +59,10 @@ REPO_COMMIT="$(git -C "${BUILD_DIR}" rev-parse HEAD)"
 # ---------------------------------------------------------------------------
 # Patch
 #
-# Exactly one, matched literally so the build fails loudly rather than silently
-# producing an engine the host script cannot drive.
+# Two, both matched literally so the build fails loudly rather than silently
+# producing an engine the host script cannot drive. Both add something the
+# plugin needs and upstream has no reason to carry; neither changes how the
+# game plays.
 # ---------------------------------------------------------------------------
 
 patch_source() {
@@ -96,6 +98,25 @@ patch_source "CMakeLists.txt" \
     "            -sEXPORTED_RUNTIME_METHODS=['FS','callMain','addRunDependency','removeRunDependency'] \\\\\n            -sEMULATE_FUNCTION_POINTER_CASTS=1 \\\\" \
     "export FS for runtime WAD loading"
 
+# Print the skill at every level exit, for the leaderboard.
+#
+# The plugin reads PrBoom+'s own -levelstat table, which records the time,
+# kills, items and secrets of each level completed. It does not record the
+# skill they were set on, and neither does -statdump: skill is in the savegame
+# header and nowhere else a running engine writes it, so a board built from
+# levelstat alone puts a Nightmare time in the same column as a baby one.
+#
+# gameskill is a global and lprintf.h is already included here, so this is one
+# statement. It goes on the line it precedes rather than a line of its own
+# because the replacement is written into the source verbatim, and a literal
+# newline cannot be carried through the environment variable it arrives in.
+#
+# The host script matches this on stdout. Change the wording and the skill
+# silently stops being recorded, so change both or neither.
+patch_source "src/g_game.c" \
+    "  e6y_G_DoCompleted();//e6y" \
+    "  lprintf(LO_INFO, \"G_DoCompleted: skill %d\\n\", gameskill); e6y_G_DoCompleted();//e6y" \
+    "print the skill at level exit"
 
 # ---------------------------------------------------------------------------
 # Stage 1: the engine's resource WAD
