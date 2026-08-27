@@ -1,6 +1,6 @@
 # Release Notes for Daemon
 
-## Unreleased
+## 1.0.0-beta.4 - 2026-08-27
 
 ### Added
 - A **Leaderboard** button on the Daemon screen, opening a slideout with the fastest time and the most kills, items and secrets for each level, across everyone who plays. Figures come from PrBoom+'s own `-levelstat` table, which the engine rewrites at every level exit. Only completed levels count: dying, quitting or loading a save records nothing.
@@ -10,10 +10,10 @@
 
 ### Changed
 - The **Daemon WADs** utility is now **Daemon**, with the WAD downloads under a **WADs** heading and the savegame downloads below them. Its id changed from `daemon-wads` to `daemon`, so its permission is `utility:daemon` and anyone who was granted `utility:daemon-wads` needs granting again.
-- The engine is rebuilt from the same pinned `v2.2.0`, with a second patch: the skill is now printed at every level exit. Neither `-levelstat` nor `-statdump` records it, and a board pooling Nightmare times with I'm Too Young To Die ones is not a board. Nothing that decides savegame compatibility changed, so existing saves still load.
+- The engine is rebuilt from the same pinned `v2.2.0`, with a second patch: the skill is now printed at every level exit. Nothing that decides savegame compatibility changed, so existing saves still load.
 
 ### Fixed
-- The compiled engine no longer carries the absolute path of the machine that built it. `assert()` bakes `__FILE__` into the binary and CMake compiles with absolute paths, so `index.wasm` shipped with a developer's home directory in it. The build now compiles with `-ffile-prefix-map` and refuses to install an artefact containing the build path.
+- The compiled engine no longer carries the absolute path of the machine that built it, which `index.wasm` shipped with. The build now compiles with `-ffile-prefix-map` and refuses to install an artefact containing the build path.
 
 ## 1.0.0-beta.3 - 2026-08-26
 
