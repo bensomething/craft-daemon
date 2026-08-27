@@ -8,7 +8,7 @@ use bensomething\daemon\services\Engine;
 use bensomething\daemon\services\Saves;
 use bensomething\daemon\services\Stats;
 use bensomething\daemon\services\Wads;
-use bensomething\daemon\utilities\DownloadWads;
+use bensomething\daemon\utilities\Daemon;
 use bensomething\daemon\web\assets\settings\SettingsAsset;
 use Craft;
 use craft\base\Model;
@@ -143,7 +143,7 @@ class Plugin extends \craft\base\Plugin
             Utilities::class,
             Utilities::EVENT_REGISTER_UTILITIES,
             static function(RegisterComponentTypesEvent $event) {
-                $event->types[] = DownloadWads::class;
+                $event->types[] = Daemon::class;
             }
         );
     }

@@ -30,11 +30,11 @@ php craft daemon/wad/freedoom
 
 That downloads Freedoom 0.13.0, verifies it against a pinned checksum, and unpacks both IWADs into `storage/daemon/`. Run it once per environment, since `storage/` is not usually deployed.
 
-The settings screen has buttons for the same downloads, with progress.
+The **Daemon** utility has buttons for the same downloads, with progress, and a **Savegames** section below them for taking your own saves back off the server: one at a time, or all of them as a zip holding the newest version of each slot, laid out so it unzips over a desktop PrBoom's save directory.
 
 ### Doom's shareware episode
 
-`php craft daemon/wad/shareware`, or the button beside it on the settings screen, fetches and verifies id's Doom shareware IWAD. It is a download rather than a bundle because a Composer package carrying id's game data would make every install a redistributor of it, and would stop this package being wholly MIT and GPL. The WAD it installs is id Software's and is not covered by this plugin's licence.
+`php craft daemon/wad/shareware`, or the button beside it on the **Daemon** utility, fetches and verifies id's Doom shareware IWAD. It is a download rather than a bundle because a Composer package carrying id's game data would make every install a redistributor of it, and would stop this package being wholly MIT and GPL. The WAD it installs is id Software's and is not covered by this plugin's licence.
 
 The checksum is pinned against an artefact matching the MD5 that Debian's `game-data-packager` publishes, so it does not depend on whoever serves the file.
 
@@ -93,7 +93,7 @@ Turn the setting off and the engine is not asked for stats at all, rather than a
 
 ## Permissions
 
-`daemon:play` controls access to the section, registered separately from Craft's automatic `accessplugin-daemon` so it can be granted on its own. The nav item disappears without it. It also gates the leaderboard, so the utility's own permission shows the WAD downloads to somebody who cannot play, and nothing else.
+`daemon:play` controls access to the section, registered separately from Craft's automatic `accessplugin-daemon` so it can be granted on its own. The nav item disappears without it. It also gates the leaderboard and the savegame downloads, so the utility's own `utility:daemon` shows the WAD downloads to somebody who cannot play, and nothing else.
 
 ## Notes for the curious
 
@@ -108,7 +108,6 @@ Turn the setting off and the engine is not asked for stats at all, rather than a
 **Except while the leaderboard is open, where disarming the game is exactly the point.** A slideout wants Tab, Space, Enter and Escape, and the engine would take all four and queue them up for when it resumes. So opening one pauses the main loop, unbinds the capture-phase listener, and adds a bubble-phase `document` listener that does call `stopPropagation`. That works because of where everything sits: SDL registers on `window` with `useCapture` 0, last in the bubble chain, while Garnish's shortcut manager is on `body` and the slideout's focus trap is on its own container. A listener on `document` sits between them, and cuts the engine off without taking a key from anything else.
 
 **Level stats are polled, not pushed.** Nothing signals a level exit. `levelstat.txt` is written inside `G_DoCompleted`, and the engine prints nothing on a normal exit: the `FINISHED:` line looks like the signal, but only fires for demo playback with the drawers off. So the host watches the file's mtime every three seconds, which an intermission screen outlasts several times over. The file lands in Emscripten's working directory rather than under the IDBFS mount, because `e6y_WriteStats()` opens it with a bare relative path and nothing in the engine ever calls `chdir`. It is gone on a reload, which is why it is read while the game runs.
-
 
 **Safari lies about the arrow keys.** macOS sets the numeric-pad flag on them and WebKit passes it through as `KeyboardEvent.location` 3, so SDL's numpad branch turns `SDLK_UP` into `SDLK_KP_8` and PrBoom receives `KEYD_KEYPAD8`, which nothing is bound to. The menu cursor sits still, the sliders will not slide and the arrows will not turn, while every other key works, which makes it look like the arrows alone are dead. The host script shadows `location` with an own property on the event before SDL's listener reads it, on key-ups as well, since SDL matches a release to its press by keycode. A real numpad press arrives as `Numpad8` in `ev.code` and is left alone.
 

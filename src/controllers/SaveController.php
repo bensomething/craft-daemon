@@ -7,10 +7,15 @@ use bensomething\daemon\Plugin;
 use bensomething\daemon\services\Saves;
 use Craft;
 use craft\helpers\DateTimeHelper;
+use craft\helpers\FileHelper;
+use craft\helpers\StringHelper;
 use craft\web\Controller;
 use Throwable;
 use yii\web\BadRequestHttpException;
+use yii\web\NotFoundHttpException;
 use yii\web\Response;
+use yii\web\ServerErrorHttpException;
+use ZipArchive;
 
 /**
  * Reading and writing savegames on behalf of the browser.
@@ -21,6 +26,12 @@ use yii\web\Response;
  */
 class SaveController extends Controller
 {
+    /**
+     * The largest archive built in one go. The newest save of each slot of each
+     * game, which in practice is a few megabytes.
+     */
+    private const MAX_ARCHIVE_BYTES = 67108864;
+
     /**
      * @throws \yii\web\ForbiddenHttpException if the user can't play.
      */
@@ -160,6 +171,114 @@ class SaveController extends Controller
             ]),
             ['saves' => $stored],
         );
+    }
+
+    /**
+     * Sends one stored save to the browser as a file.
+     *
+     * Named as the engine named it, so the download drops straight into a
+     * desktop PrBoom's save directory. Two versions of the same slot therefore
+     * share a filename, and the browser is left to do what it does about that:
+     * the alternative is a name the engine would not load.
+     *
+     * @throws BadRequestHttpException if the request names no game or no save.
+     * @throws NotFoundHttpException if the save is gone.
+     */
+    public function actionDownload(): Response
+    {
+        $wadKey = $this->wadKey();
+        $id = (string)$this->request->getRequiredParam('id');
+        $userId = $this->userId();
+        $saves = $this->getSaves();
+        $all = $saves->getSaves($userId, $wadKey);
+
+        if (!isset($all[$id])) {
+            throw new NotFoundHttpException('That save is gone.');
+        }
+
+        $contents = $saves->read($userId, $wadKey, $id);
+
+        if ($contents === null) {
+            throw new NotFoundHttpException('That save could not be read.');
+        }
+
+        return $this->response->sendContentAsFile($contents, basename($all[$id]->enginePath), [
+            'mimeType' => 'application/octet-stream',
+            'inline' => false,
+        ]);
+    }
+
+    /**
+     * Sends every game's newest save, as a zip.
+     *
+     * The newest of each slot rather than every version: this is the archive
+     * you would carry to another machine, and the engine only ever loads the
+     * one in the slot. Older versions are a download at a time, from the same
+     * screen. Laid out as <game>/<the engine's own path>, so unzipping over a
+     * PrBoom save directory puts everything where it expects.
+     *
+     * @throws NotFoundHttpException if the user has no saves at all.
+     * @throws \yii\base\Exception if the temporary file can't be written.
+     */
+    public function actionDownloadAll(): Response
+    {
+        $userId = $this->userId();
+        $saves = $this->getSaves();
+        $plugin = Plugin::getInstance();
+
+        $path = Craft::$app->getPath()->getTempPath() . '/daemon-saves-' . StringHelper::UUID() . '.zip';
+        $zip = new ZipArchive();
+
+        if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            throw new ServerErrorHttpException('Could not build the archive.');
+        }
+
+        $bytes = 0;
+        $count = 0;
+
+        foreach ($plugin->getWads()->getAvailableWads() as $wadKey => $wad) {
+            foreach ($saves->getLatestSaves($userId, $wadKey) as $save) {
+                $contents = $saves->read($userId, $wadKey, $save->id);
+
+                if ($contents === null) {
+                    continue;
+                }
+
+                $bytes += strlen($contents);
+
+                // A ceiling rather than a promise: the newest of each slot
+                // cannot realistically reach this, and an archive built without
+                // one is a way to ask a server to hold an unbounded string.
+                if ($bytes > self::MAX_ARCHIVE_BYTES) {
+                    $zip->close();
+                    FileHelper::unlink($path);
+
+                    return $this->asFailure(Craft::t('daemon', 'There are too many saves to archive at once.'));
+                }
+
+                $zip->addFromString($wadKey . '/' . $save->enginePath, $contents);
+                $count++;
+            }
+        }
+
+        $zip->close();
+
+        if ($count === 0) {
+            FileHelper::unlink($path);
+
+            throw new NotFoundHttpException('There are no saves to download.');
+        }
+
+        // Craft sweeps @runtime/temp, but a file the size of a savegame archive
+        // should not wait for that.
+        $this->response->on(Response::EVENT_AFTER_SEND, static function() use ($path) {
+            FileHelper::unlink($path);
+        });
+
+        return $this->response->sendFile($path, 'daemon-saves.zip', [
+            'mimeType' => 'application/zip',
+            'inline' => false,
+        ]);
     }
 
     /**

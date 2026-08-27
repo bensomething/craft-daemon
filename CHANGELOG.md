@@ -5,9 +5,11 @@
 ### Added
 - A **Leaderboard** button on the Daemon screen, opening a slideout with the fastest time and the most kills, items and secrets for each level, across everyone who plays. Figures come from PrBoom+'s own `-levelstat` table, which the engine rewrites at every level exit. Only completed levels count: dying, quitting or loading a save records nothing.
 - A **Leaderboard** setting, on by default, which also decides whether the engine is asked for stats at all.
+- A **Savegames** section on the Daemon utility, listing your own stored saves with a download for each, and a **Download all** button producing a zip of the newest version of each slot, laid out the way the engine expects so it drops into a desktop PrBoom.
 - A user's level stats are deleted along with the user, in the same garbage collection sweep as their savegames.
 
 ### Changed
+- The **Daemon WADs** utility is now **Daemon**, with the WAD downloads under a **WADs** heading and the savegame downloads below them. Its id changed from `daemon-wads` to `daemon`, so its permission is `utility:daemon` and anyone who was granted `utility:daemon-wads` needs granting again.
 - The engine is rebuilt from the same pinned `v2.2.0`, with a second patch: the skill is now printed at every level exit. Neither `-levelstat` nor `-statdump` records it, and a board pooling Nightmare times with I'm Too Young To Die ones is not a board. Nothing that decides savegame compatibility changed, so existing saves still load.
 
 ### Fixed

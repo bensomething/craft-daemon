@@ -7,6 +7,8 @@
    disables every button and discards the screen's JavaScript with it.
    ========================================================================= #}
 
+<h2 class="daemon-utility-heading">{{ 'WADs'|t('daemon') }}</h2>
+
 <p class="light">{{ 'Freedoom is free software and all the engine needs to run. The Doom shareware episode is id Software\'s, redistributable but not free, and is fetched rather than shipped for that reason.'|t('daemon') }}</p>
 
 {# Hooked by class, not id, so the same markup works here and anywhere else
@@ -53,6 +55,82 @@
     })|raw }}
 </p>
 
+{# =========================================================================
+   Savegames
+   Taking off the server what the Saves menu puts on it.
+
+   One person's own saves, never anybody else's: the id comes from the session
+   the same way it does everywhere else the plugin touches a save, so holding
+   this utility's permission does not hand you somebody else's game.
+   ========================================================================= #}
+
+{% if canDownloadSaves %}
+    <hr>
+
+    <h2 class="daemon-utility-heading">{{ 'Savegames'|t('daemon') }}</h2>
+
+    {% if not autosave %}
+        <p class="light">
+            {{ 'Keeping savegames is turned off, so nothing new is being stored. Anything kept before it was turned off is still here.'|t('daemon') }}
+        </p>
+    {% endif %}
+
+    {% if games is empty %}
+        <p class="light">{{ 'You have no savegames stored. They arrive here when you save from the game\'s own Esc menu.'|t('daemon') }}</p>
+    {% else %}
+        <p class="light">
+            {{ 'Your own saves, in the engine\'s own format and under the engine\'s own filenames, so a download drops straight into a desktop PrBoom. Ten versions of each slot are kept; the newest is the one the game loads.'|t('daemon') }}
+        </p>
+
+        <div class="buttons">
+            {# An ordinary link, because it is a GET that sends a file: routed
+               through Craft's action URL so the controller's permission check
+               is the thing standing in front of it. #}
+            <a class="btn" data-icon="download" href="{{ actionUrl('daemon/save/download-all') }}">
+                {{ 'Download all'|t('daemon') }}
+            </a>
+        </div>
+
+        <p class="light smalltext daemon-utility-note">
+            {{ 'That archive holds the newest version of each slot, filed under its game. Older versions are one at a time, below.'|t('daemon') }}
+        </p>
+
+        {% for game in games %}
+            <h3 class="daemon-utility-game">
+                {{ game.wad.name }}
+                <span class="light">({{ game.bytes|filesize }})</span>
+            </h3>
+
+            <table class="data fullwidth daemon-saves-table">
+                <thead>
+                    <tr>
+                        <th scope="col">{{ 'Save'|t('daemon') }}</th>
+                        <th scope="col">{{ 'Slot'|t('daemon') }}</th>
+                        <th scope="col">{{ 'Kept'|t('daemon') }}</th>
+                        <th scope="col">{{ 'Size'|t('daemon') }}</th>
+                        <th scope="col"><span class="visually-hidden">{{ 'Download'|t('daemon') }}</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for save in game.saves %}
+                        <tr>
+                            <th scope="row">{{ save.getLabel() }}</th>
+                            <td>{{ save.slot + 1 }}</td>
+                            <td>{{ save.savedAt|datetime('short') }}</td>
+                            <td>{{ save.size|filesize }}</td>
+                            <td class="daemon-saves-download">
+                                <a class="btn small" data-icon="download" href="{{ actionUrl('daemon/save/download', {wad: game.wad.key, id: save.id}) }}">
+                                    {{ 'Download'|t('daemon') }}
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
+    {% endif %}
+{% endif %}
+
 {% css %}
     /* The button and its progress on one row. The bar only takes space while
        there is something to report, so an idle screen is just a button. */
@@ -85,6 +163,20 @@
     .daemon-fetch .daemon-fetch-status:empty { display: none; }
     .daemon-fetch .daemon-fetch-status.error { color: var(--error-color); }
     .daemon-fetch-note { margin-top: 24px; }
+
+    /* Craft's utility pane opens with no heading, so the first one should not
+       push the section down off the top of it. */
+    .daemon-utility-heading:first-child { margin-top: 0; }
+    /* hr carries its own margin; the heading after it does not need to add to
+       it, which is how the second section ends up sitting lower than the first
+       started. */
+    hr + .daemon-utility-heading { margin-top: 0; }
+    .daemon-utility-game { margin-bottom: 8px; }
+    .daemon-utility-note { margin-top: 8px; }
+    .daemon-saves-table { margin-bottom: 24px; }
+    /* The button column takes only what the button needs, so the rest goes to
+       the description, which is the part that varies. */
+    .daemon-saves-download { width: 1%; white-space: nowrap; text-align: end; }
 {% endcss %}
 
 {% js %}
