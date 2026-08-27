@@ -40,6 +40,16 @@ class Settings extends Model
     public bool $pointerLock = true;
 
     /**
+     * @var bool Whether level stats are kept and the Leaderboard button appears.
+     *
+     * On by default, unlike savegames: a record is a few hundred bytes per level
+     * rather than a few hundred KB, and a board nobody is on is not a feature.
+     * Off stops the engine being asked for stats at all, so nothing is recorded
+     * rather than recorded and hidden.
+     */
+    public bool $leaderboard = true;
+
+    /**
      * The configured directory with any $ENV_VAR or @alias resolved. Null when
      * nothing is configured, and when the reference resolves to nothing, which is
      * what a $VAR set in one environment and not another does. Quiet on purpose:
@@ -113,7 +123,7 @@ class Settings extends Model
             [['wadDir'], 'trim'],
             [['wadDir'], 'string'],
             [['defaultWad'], 'string'],
-            [['autosave', 'pointerLock'], 'boolean'],
+            [['autosave', 'pointerLock', 'leaderboard'], 'boolean'],
             [['wadNames'], 'validateWadNames'],
         ];
     }

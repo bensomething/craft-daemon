@@ -66,6 +66,22 @@ Turn on **Keep savegames** and every save is also copied into `storage/daemon/sa
 
 It is off by default. Saves are tied to the engine build that wrote them, so bumping `REPO_TAG` in `bin/build-engine.sh` may orphan them.
 
+## Leaderboard
+
+A **Leaderboard** button sits at the top right of the screen and opens a slideout: the fastest time, and the most kills, items and secrets, for every level anyone has finished, with who holds each. Your own rows are in bold. The game is paused while it is open.
+
+The figures come from PrBoom+'s own `-levelstat` table, the one speedrunners have been using since e6y added it. The engine rewrites `levelstat.txt` at every level exit with the time to a hundredth of a second and the kills, items and secrets against their totals, and the browser passes on whatever is new. Nothing is read out of the engine's memory, because nothing can be: the build exports `main()` and the filesystem, and no game symbols.
+
+Only completed levels count. Doom does not tell anyone anything when you die, quit or load a save, so none of those record a thing.
+
+**A level is held once per skill.** A time from I'm Too Young To Die is not a slower Ultra-Violence time, it is a different sport, and the same goes for kills, since there are more monsters higher up. Secrets are the one figure that means the same on every skill.
+
+Getting that far took a patch. `-levelstat` records what happened and not what it was set to, `-statdump` is no better, and `default_skill` in the engine's config is the menu's starting position rather than the game in progress, never written back when you choose. So the build prints the skill at every level exit and the host reads it off stdout. See [Building the engine](#building-the-engine).
+
+None of it is evidence. This is a browser reporting its own numbers, and IDCLEV and IDDQD are two of the best known strings in software.
+
+Turn the setting off and the engine is not asked for stats at all, rather than asked and ignored.
+
 ## Console commands
 
 | Command | What it does |
@@ -77,7 +93,7 @@ It is off by default. Saves are tied to the engine build that wrote them, so bum
 
 ## Permissions
 
-`daemon:play` controls access to the section, registered separately from Craft's automatic `accessplugin-daemon` so it can be granted on its own. The nav item disappears without it.
+`daemon:play` controls access to the section, registered separately from Craft's automatic `accessplugin-daemon` so it can be granted on its own. The nav item disappears without it. It also gates the leaderboard, so the utility's own permission shows the WAD downloads to somebody who cannot play, and nothing else.
 
 ## Notes for the curious
 
@@ -87,7 +103,12 @@ It is off by default. Saves are tied to the engine build that wrote them, so bum
 
 **The build is single-threaded on purpose.** A pthreads build needs `SharedArrayBuffer`, which needs COOP and COEP response headers, which a plugin cannot set on someone else's server.
 
-**Keyboard input is scoped, not stolen.** The host script pushes a Garnish UI layer, the same mechanism modals use, to scope Craft's own shortcuts away, then calls `preventDefault` on a capture-phase window listener for the keys the browser would act on itself. It never calls `stopPropagation`: SDL listens on `window`, so halting propagation would disarm the game along with Craft.
+**Keyboard input is scoped, not stolen.** The host script pushes a Garnish UI layer, the same mechanism modals use, to scope Craft's own shortcuts away, then calls `preventDefault` on a capture-phase window listener for the keys the browser would act on itself. It does not call `stopPropagation` while the game has the keyboard: SDL listens on `window`, so halting propagation would disarm the game along with Craft.
+
+**Except while the leaderboard is open, where disarming the game is exactly the point.** A slideout wants Tab, Space, Enter and Escape, and the engine would take all four and queue them up for when it resumes. So opening one pauses the main loop, unbinds the capture-phase listener, and adds a bubble-phase `document` listener that does call `stopPropagation`. That works because of where everything sits: SDL registers on `window` with `useCapture` 0, last in the bubble chain, while Garnish's shortcut manager is on `body` and the slideout's focus trap is on its own container. A listener on `document` sits between them, and cuts the engine off without taking a key from anything else.
+
+**Level stats are polled, not pushed.** Nothing signals a level exit. `levelstat.txt` is written inside `G_DoCompleted`, and the engine prints nothing on a normal exit: the `FINISHED:` line looks like the signal, but only fires for demo playback with the drawers off. So the host watches the file's mtime every three seconds, which an intermission screen outlasts several times over. The file lands in Emscripten's working directory rather than under the IDBFS mount, because `e6y_WriteStats()` opens it with a bare relative path and nothing in the engine ever calls `chdir`. It is gone on a reload, which is why it is read while the game runs.
+
 
 **Safari lies about the arrow keys.** macOS sets the numeric-pad flag on them and WebKit passes it through as `KeyboardEvent.location` 3, so SDL's numpad branch turns `SDLK_UP` into `SDLK_KP_8` and PrBoom receives `KEYD_KEYPAD8`, which nothing is bound to. The menu cursor sits still, the sliders will not slide and the arrows will not turn, while every other key works, which makes it look like the arrows alone are dead. The host script shadows `location` with an own property on the event before SDL's listener reads it, on key-ups as well, since SDL matches a release to its press by keycode. A real numpad press arrives as `Numpad8` in `ev.code` and is left alone.
 

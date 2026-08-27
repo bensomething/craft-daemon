@@ -238,3 +238,110 @@
     line-height: 1.5;
     text-align: center;
 }
+
+/* The leaderboard slideout.
+ *
+ * Craft's slideout chrome does the work; these are the four things it has no
+ * opinion about, because it has never had to show a table of times. */
+
+/* Wider than the default. Six columns, two of which carry a figure stacked
+   over a name, and the default slideout is sized for a form. */
+.daemon-board-slideout {
+    --slideout-width: 44rem;
+    max-width: 100%;
+}
+
+/* Its own scroller. .so-body scrolls vertically, so without this a table too
+   wide for the panel would take the slideout's own chrome sideways with it. */
+.daemon-board-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+/* The figure and the holder stack: putting them side by side makes the column
+   as wide as the longest name, which on a table of times is most of it. */
+.daemon-board-figure {
+    display: block;
+    font-variant-numeric: tabular-nums;
+}
+
+.daemon-board-holder {
+    display: block;
+}
+
+/* Bold and green. The bold is the part that carries the meaning: colour is
+   never the only thing saying "this one is yours", so the row still reads to
+   anyone who cannot tell it apart by hue. The green is additive, and it is
+   Craft's success colour rather than a green of our own, which keeps it in step
+   with the rest of the control panel.
+
+   Success is the right token here rather than a borrowed one: every figure on
+   this board is the record for its column, so a green one means you hold it. */
+.daemon-board-figure--yours {
+    font-weight: bold;
+    color: var(--success-color, #0f766e);
+}
+
+/* Figures line up on the right, and so do the headings above them: a heading
+   sitting over the far end of its own column is what makes the column read as
+   one thing rather than as a label with numbers loose beneath it. */
+.daemon-board th,
+.daemon-board td {
+    text-align: end;
+}
+
+/* The first two columns name the row rather than measuring it, in the head and
+   the body alike, so they stay on the start edge. Matched on the row's children
+   so one rule covers the body's th and the head's, and adding a column at the
+   end never moves it. */
+.daemon-board tr > *:nth-child(-n+2) {
+    text-align: start;
+}
+
+.daemon-board .daemon-board-plays {
+    font-variant-numeric: tabular-nums;
+}
+
+/* abbr's default underline reads as a spelling error next to real data. */
+.daemon-board abbr {
+    text-decoration: none;
+    border-bottom: 1px dotted currentColor;
+    cursor: help;
+}
+
+/* The footer sets its own padding and centres what is in it, so the paragraph
+   should bring no margin of its own to the row. */
+.daemon-board-note {
+    margin: 0;
+}
+
+/* The header centres its toolbar.
+ *
+ * .pane-header is min-height 45px with 5px and 6px of block padding, so its
+ * content box is at least 34px, and it is not a flex container. Its .so-toolbar
+ * is capped at 28px, so it sits at the top of that box with the slack below it
+ * and the heading a few pixels high of centre. Craft never sees this because
+ * its own toolbars hold buttons and tabs taller than the slack; this one holds
+ * a single line of text. */
+.daemon-board-slideout .pane-header {
+    display: flex;
+    align-items: center;
+}
+
+.daemon-board-slideout .pane-header > .so-toolbar {
+    flex: 1;
+}
+
+/* .h2 carries 14px of block margin, which would make the toolbar taller than
+   the header it is being centred in. The header's own padding provides that
+   space already. */
+.daemon-board-slideout .so-toolbar h1 {
+    margin: 0;
+    /* A flex item will not shrink below its content, so a long game name would
+       otherwise widen the panel rather than truncate. */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+

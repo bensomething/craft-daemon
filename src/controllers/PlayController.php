@@ -81,6 +81,16 @@ class PlayController extends Controller
                 && Craft::$app->getUser()->getId() !== null
                 && $plugin->getSettings()->autosave,
             'autosave' => $plugin->getSettings()->autosave,
+            // The Saves menu's three conditions, and one more. Nothing to
+            // record without a game, records are filed under a user id, and the
+            // admin can turn the whole thing off. The engine is the extra one:
+            // the button is driven by the host script, which is only booted
+            // when there is an engine to boot, so without it the button would
+            // render and do nothing.
+            'leaderboard' => $wad !== null
+                && $engine->isInstalled()
+                && Craft::$app->getUser()->getId() !== null
+                && $plugin->getSettings()->leaderboard,
             'pointerLock' => $plugin->getSettings()->pointerLock,
             'canManageSettings' => Craft::$app->getUser()->getIsAdmin(),
         ]);

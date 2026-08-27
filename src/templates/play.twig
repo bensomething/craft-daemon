@@ -56,6 +56,25 @@
     {% endset %}
 {% endif %}
 
+{# The top right of the page header, where an entry keeps Save.
+   The condition is inside the block rather than around it: Twig registers a
+   child template's blocks whatever they are wrapped in, so an {% if %} outside
+   would override the parent's block with an empty one instead of leaving it
+   alone. The layout trims what the block returns, so nothing renders when the
+   board is off. #}
+{% block actionButton %}
+    {% if leaderboard %}
+        {# Craft's own button template rather than a hand-written one, because an
+           icon is not an attribute in Craft 5: it is an SVG in a .cp-icon
+           alongside a .label, and this is the thing that knows that. #}
+        {% include '_includes/forms/button.twig' with {
+            class: 'daemon-leaderboard-btn',
+            icon: 'trophy',
+            label: 'Leaderboard'|t('daemon'),
+        } only %}
+    {% endif %}
+{% endblock %}
+
 {% block content %}
     {% if not engineInstalled %}
         <div class="pane">
@@ -113,7 +132,13 @@
                     upload: 'daemon/save/upload'
                 },
                 saveMenu: '#daemon-saves-menu',
+                statActions: {
+                    record: 'daemon/stats/record',
+                    board: 'daemon/stats/board'
+                },
+                leaderboardButton: '.daemon-leaderboard-btn',
                 autosave: {{ autosave ? 'true' : 'false' }},
+                leaderboard: {{ leaderboard ? 'true' : 'false' }},
                 pointerLock: {{ pointerLock ? 'true' : 'false' }}
             });
         {% endjs %}

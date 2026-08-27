@@ -6,6 +6,7 @@ use bensomething\daemon\controllers\PlayController;
 use bensomething\daemon\models\Settings;
 use bensomething\daemon\services\Engine;
 use bensomething\daemon\services\Saves;
+use bensomething\daemon\services\Stats;
 use bensomething\daemon\services\Wads;
 use bensomething\daemon\utilities\DownloadWads;
 use bensomething\daemon\web\assets\settings\SettingsAsset;
@@ -28,6 +29,7 @@ use yii\base\Event;
  *
  * @property-read Engine $engine
  * @property-read Saves $saves
+ * @property-read Stats $stats
  * @property-read Wads $wads
  * @method Settings getSettings()
  */
@@ -43,6 +45,7 @@ class Plugin extends \craft\base\Plugin
             'components' => [
                 'engine' => Engine::class,
                 'saves' => Saves::class,
+                'stats' => Stats::class,
                 'wads' => Wads::class,
             ],
         ];
@@ -74,6 +77,11 @@ class Plugin extends \craft\base\Plugin
     public function getSaves(): Saves
     {
         return $this->get('saves');
+    }
+
+    public function getStats(): Stats
+    {
+        return $this->get('stats');
     }
 
     public function getWads(): Wads
@@ -141,10 +149,10 @@ class Plugin extends \craft\base\Plugin
     }
 
     /**
-     * Saves are filed under a user id, and a deleted user's directory would
-     * otherwise sit there for good. Craft's own garbage collection is where
-     * this belongs: it already runs on a schedule, after the soft deleted
-     * users it is clearing out have really gone.
+     * Savegames and level stats are both filed under a user id, and a deleted
+     * user's directory would otherwise sit there for good. Craft's own garbage
+     * collection is where this belongs: it already runs on a schedule, after
+     * the soft deleted users it is clearing out have really gone.
      */
     private function registerGarbageCollection(): void
     {
@@ -153,6 +161,7 @@ class Plugin extends \craft\base\Plugin
             Gc::EVENT_RUN,
             function() {
                 $this->getSaves()->deleteOrphaned();
+                $this->getStats()->deleteOrphaned();
             }
         );
     }

@@ -1,0 +1,104 @@
+{# The slideout's contents, rendered rather than built in jQuery: it is a table,
+   and the shape below is what Craft's own slideouts use (CpScreenSlideout.js).
+   Craft.Slideout takes whatever it is handed, so the classes are the only thing
+   making it look like the rest of the control panel. #}
+
+<header class="pane-header">
+    <div class="so-toolbar">
+        <h1 class="h2 flex-grow">{{ 'Leaderboard'|t('daemon') }}: {{ wad.name }}</h1>
+    </div>
+</header>
+
+<div class="so-body">
+    <div class="so-content">
+        {% if rows is empty %}
+            <p class="zilch">{{ 'Nobody has finished a level yet. Reach an exit and the level lands here.'|t('daemon') }}</p>
+        {% else %}
+            {# Its own scroller. so-body scrolls vertically, so a wide table would
+               otherwise push the slideout's own chrome sideways. #}
+            <div class="daemon-board-scroll">
+                <table class="data fullwidth daemon-board">
+                    <thead>
+                        <tr>
+                            <th scope="col">{{ 'Level'|t('daemon') }}</th>
+                            <th scope="col">{{ 'Skill'|t('daemon') }}</th>
+                            <th scope="col">{{ 'Fastest'|t('daemon') }}</th>
+                            <th scope="col">{{ 'Kills'|t('daemon') }}</th>
+                            <th scope="col">{{ 'Items'|t('daemon') }}</th>
+                            <th scope="col">{{ 'Secrets'|t('daemon') }}</th>
+                            <th scope="col" class="daemon-board-plays">{{ 'Exits'|t('daemon') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                            <tr>
+                                <th scope="row">{{ row.label }}</th>
+
+                                <td>
+                                    {% if row.skill %}
+                                        {# The short form, because the full one is
+                                           three words and this column is next to
+                                           four numeric ones. #}
+                                        <abbr title="{{ row.skill.getDescription() }}">{{ row.skill.getLabel() }}</abbr>
+                                    {% else %}
+                                        <span class="light" title="{{ 'Recorded by an engine build that did not report the skill.'|t('daemon') }}">{{ 'Unknown'|t('daemon') }}</span>
+                                    {% endif %}
+                                </td>
+
+                                {% for metric in ['time', 'kills', 'items', 'secrets'] %}
+                                    {% set leader = row[metric] %}
+                                    <td>
+                                        {% if leader %}
+                                            <span class="daemon-board-figure{{ leader.isCurrentUser ? ' daemon-board-figure--yours' }}">{{ leader.display }}</span>
+                                            <span class="daemon-board-holder smalltext light">
+                                                {# Italic where a name would otherwise be, upright where there
+                                                   is a real one. Both of these stand in for a name rather than
+                                                   being one, which is what the different voice is saying. #}
+                                                {%- if leader.isCurrentUser -%}
+                                                    <em>{{ 'You'|t('daemon') }}</em>
+                                                {%- elseif leader.name -%}
+                                                    {{ leader.name }}
+                                                {%- else -%}
+                                                    {# The user is gone and garbage collection has not been round
+                                                       yet. Naming the id would tell nobody anything. #}
+                                                    <em>{{ 'A former player'|t('daemon') }}</em>
+                                                {%- endif -%}
+                                                {%- if leader.sharedWith %}
+                                                    {{- ', ' ~ '+{count} tied'|t('daemon', {count: leader.sharedWith}) -}}
+                                                {% endif -%}
+                                            </span>
+                                        {% else %}
+                                            <span class="light">&mdash;</span>
+                                        {% endif %}
+                                    </td>
+                                {% endfor %}
+
+                                <td class="daemon-board-plays">{{ row.plays }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{# Craft's own slideout footer: a flex row that ends flush right, with
+   .so-notice carrying margin-inline-end: auto, so the caveat sits on the left
+   and the button on the right without a spacer between them.
+
+   The caveat is load-bearing rather than modest. A reader who does not know
+   both halves will take the board to mean more than it does, and the footer is
+   the one part of the panel that is on screen whichever row you are reading.
+
+   Esc and the shade close the slideout too, but neither is visible, and on a
+   narrow viewport the panel covers the shade entirely. #}
+<div class="so-footer">
+    <div class="so-notice">
+        <p class="light smalltext daemon-board-note">
+            {{ 'A level is held once per skill, and only completed levels count.'|t('daemon') }}
+        </p>
+    </div>
+
+    <button type="button" class="btn" data-daemon-close>{{ 'Close'|t('daemon') }}</button>
+</div>

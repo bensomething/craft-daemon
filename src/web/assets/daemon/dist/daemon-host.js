@@ -68,6 +68,24 @@
     var UPLOAD_DELAY = 800;
 
     /*
+     * Where -levelstat writes. e6y_WriteStats() opens it with a bare relative
+     * path and nothing in the engine ever calls chdir, so it lands in
+     * Emscripten's default working directory rather than under SAVE_ROOT. It is
+     * MEMFS, not IDBFS: it does not survive a reload, which is why it is read
+     * while the game runs rather than at the end.
+     */
+    var LEVELSTAT_PATH = '/levelstat.txt';
+
+    /*
+     * How often to look at it. There is nothing to hook: the file is written
+     * inside G_DoCompleted and the engine prints nothing on a normal level exit
+     * (the FINISHED: line looks like a signal but only fires for demo playback
+     * with the drawers off). A level exit is followed by an intermission screen
+     * that takes a good deal longer than this, so nothing is missed.
+     */
+    var STAT_POLL_DELAY = 3000;
+
+    /*
      * FNV-1a. Only ever compared against another hash of the same function, so it
      * needs to be fast and stable, not cryptographic.
      */
@@ -139,6 +157,41 @@
 
         unloadHandler: null,
 
+        /* Whether the two window key listeners are currently attached. They come
+           and go independently of the rest of captureInput(), because the
+           leaderboard needs them off while the beforeunload warning stays on. */
+        keysBound: false,
+
+        statTimer: null,
+
+        /* mtime of levelstat.txt as of the last look, so an unchanged file is
+           not read. */
+        statMtime: null,
+
+        /* How many lines of levelstat.txt Craft has taken. The file is rewritten
+           whole every level and only ever grows within a session, so this is
+           where the new ones start. */
+        statsSent: 0,
+
+        statsPushing: false,
+
+        /* Whether the last attempt to record a level failed. Play is not
+           interrupted over it, but the board says so when it is opened, which is
+           the moment somebody is looking for the level that is missing. */
+        statsFailed: false,
+
+        /* One skill per level exit, read off stdout, parallel to the lines in
+           levelstat.txt. The engine prints it before it writes the file and does
+           both in the same call, so the nth entry belongs to the nth line. */
+        skills: null,
+
+        $leaderboardBtn: null,
+        slideout: null,
+
+        /* Set while the leaderboard is open and the engine is being held. */
+        suspended: false,
+        keyBlocker: null,
+
         init: function (container, settings) {
             this.setSettings(settings, DaemonHost.defaults);
 
@@ -162,6 +215,12 @@
             this.addListener(this.$saveMenu, 'click', 'onSaveMenuClick');
 
             this.refreshSaveMenu();
+
+            this.skills = [];
+
+            this.$leaderboardBtn = $(this.settings.leaderboardButton);
+
+            this.addListener(this.$leaderboardBtn, 'click', 'openLeaderboard');
         },
 
         /**
@@ -244,7 +303,12 @@
                 canvas: canvas,
 
                 // The engine runs main() itself, taking its command line from here.
-                arguments: ['-iwad', wadPathFor(settings.wad)],
+                // -levelstat is PrBoom+'s own stat table, and the only way any
+                // of this reaches the page: the build exports main() and the
+                // filesystem, so a file is the only thing there is to read.
+                arguments: settings.leaderboard
+                    ? ['-iwad', wadPathFor(settings.wad), '-levelstat']
+                    : ['-iwad', wadPathFor(settings.wad)],
 
                 // The published URLs carry ?v= cache busters, so they have to be
                 // handed over rather than derived from a base path.
@@ -314,6 +378,7 @@
                 },
 
                 print: function (text) {
+                    self.onEnginePrint(text);
                     console.log(text);
                 },
 
@@ -376,6 +441,7 @@
             this.$overlay.addClass('daemon-overlay--hidden');
             this.captureInput();
             this.$canvas.trigger('focus');
+            this.startStatPoll();
         },
 
         /**
@@ -390,15 +456,36 @@
             }
 
             this.keyHandler = this.onKey.bind(this);
-            window.addEventListener('keydown', this.keyHandler, true);
 
             // Keyups need the correction too: SDL matches a release to its press
             // by keycode, and a mismatch leaves the game holding a key down.
             this.keyUpHandler = this.onKeyUp.bind(this);
-            window.addEventListener('keyup', this.keyUpHandler, true);
+
+            this.bindKeys();
 
             this.unloadHandler = this.onBeforeUnload.bind(this);
             window.addEventListener('beforeunload', this.unloadHandler);
+        },
+
+        /** Attaches the two key listeners, if they are not already on. */
+        bindKeys: function () {
+            if (this.keysBound || !this.keyHandler) {
+                return;
+            }
+
+            window.addEventListener('keydown', this.keyHandler, true);
+            window.addEventListener('keyup', this.keyUpHandler, true);
+            this.keysBound = true;
+        },
+
+        unbindKeys: function () {
+            if (!this.keysBound) {
+                return;
+            }
+
+            window.removeEventListener('keydown', this.keyHandler, true);
+            window.removeEventListener('keyup', this.keyUpHandler, true);
+            this.keysBound = false;
         },
 
         /**
@@ -419,15 +506,9 @@
         },
 
         releaseInput: function () {
-            if (this.keyHandler) {
-                window.removeEventListener('keydown', this.keyHandler, true);
-                this.keyHandler = null;
-            }
-
-            if (this.keyUpHandler) {
-                window.removeEventListener('keyup', this.keyUpHandler, true);
-                this.keyUpHandler = null;
-            }
+            this.unbindKeys();
+            this.keyHandler = null;
+            this.keyUpHandler = null;
 
             if (this.unloadHandler) {
                 window.removeEventListener('beforeunload', this.unloadHandler);
@@ -871,6 +952,292 @@
             });
         },
 
+        /**
+         * Watches stdout for the skill.
+         *
+         * The engine prints this at every level exit, from a patch this plugin
+         * applies to its build: neither -levelstat nor -statdump records the
+         * skill, and a board pooling Nightmare with I'm Too Young To Die is not
+         * a board. Match this against bin/build-engine.sh, which is the other
+         * half of it.
+         */
+        onEnginePrint: function (text) {
+            var match = /^G_DoCompleted: skill (\d+)/.exec(text);
+
+            if (match) {
+                this.skills.push(parseInt(match[1], 10));
+            }
+        },
+
+        startStatPoll: function () {
+            if (!this.settings.leaderboard || this.statTimer) {
+                return;
+            }
+
+            var self = this;
+
+            this.statTimer = setInterval(function () {
+                self.pollStats();
+            }, STAT_POLL_DELAY);
+        },
+
+        stopStatPoll: function () {
+            if (this.statTimer) {
+                clearInterval(this.statTimer);
+                this.statTimer = null;
+            }
+        },
+
+        /**
+         * Sends whatever the engine has written down since the last look.
+         *
+         * @return {Promise} for the number of levels sent, resolved immediately
+         * when there was nothing to send.
+         */
+        pollStats: function () {
+            if (!this.settings.leaderboard || !this.module || this.statsPushing) {
+                return Promise.resolve(0);
+            }
+
+            var FS = this.module.FS;
+            var stat;
+
+            try {
+                stat = FS.stat(LEVELSTAT_PATH);
+            } catch (e) {
+                // Not there yet, which is every poll until the first level ends.
+                return Promise.resolve(0);
+            }
+
+            var mtime = stat.mtime ? stat.mtime.getTime() : 0;
+
+            if (mtime === this.statMtime) {
+                return Promise.resolve(0);
+            }
+
+            this.statMtime = mtime;
+
+            var text;
+
+            try {
+                text = FS.readFile(LEVELSTAT_PATH, {encoding: 'utf8'});
+            } catch (e) {
+                return Promise.resolve(0);
+            }
+
+            var lines = [];
+
+            text.split(/\r\n|\r|\n/).forEach(function (line) {
+                line = line.trim();
+
+                if (line !== '') {
+                    lines.push(line);
+                }
+            });
+
+            // The table only grows within a session: numlevels is a global the
+            // engine never resets, and the page load that would reset it takes
+            // this counter with it. Clamped anyway, because re-sending a line
+            // counts the level as finished twice.
+            if (lines.length < this.statsSent) {
+                this.statsSent = lines.length;
+            }
+
+            if (lines.length === this.statsSent) {
+                return Promise.resolve(0);
+            }
+
+            var self = this;
+            var levels = lines.slice(this.statsSent).map(function (line, i) {
+                var skill = self.skills[self.statsSent + i];
+
+                return {
+                    line: line,
+                    // undefined rather than a guess when the two have drifted
+                    // apart, which they should not, but a wrong skill is worse
+                    // on this board than a missing one.
+                    skill: typeof skill === 'number' ? skill : null,
+                };
+            });
+
+            return this.pushStats(levels, lines.length);
+        },
+
+        /**
+         * Uploads an already-collected set of levels.
+         */
+        pushStats: function (levels, total) {
+            var self = this;
+            this.statsPushing = true;
+
+            return Craft.sendActionRequest('POST', this.settings.statActions.record, {
+                data: {wad: this.settings.wad, levels: levels},
+            }).then(function (response) {
+                // A refusal the controller handled is a 200 carrying
+                // success: false, so it arrives here rather than below. Taking
+                // it for a success would advance the counter past levels Craft
+                // never stored, and they would never be sent again.
+                if (response.data && response.data.success === false) {
+                    throw new Error(response.data.message || 'refused');
+                }
+
+                // After the response rather than before, so a failed request
+                // leaves the counter where it was and the next level sends
+                // these lines again.
+                self.statsSent = total;
+                self.statsFailed = false;
+
+                return levels.length;
+            }).catch(function (error) {
+                console.warn('[daemon] could not record level stats', error);
+                self.statsFailed = true;
+
+                return 0;
+            }).then(function (count) {
+                self.statsPushing = false;
+
+                return count;
+            });
+        },
+
+        /**
+         * Opens the board. Anything the engine has written but not yet sent goes
+         * first, so a level finished seconds ago is on the board being opened.
+         */
+        openLeaderboard: function (ev) {
+            if (ev) {
+                ev.preventDefault();
+            }
+
+            if (this.slideout) {
+                return;
+            }
+
+            var self = this;
+
+            this.pollStats().then(function () {
+                return Craft.sendActionRequest('GET', self.settings.statActions.board, {
+                    params: {wad: self.settings.wad},
+                });
+            }).then(function (response) {
+                self.showLeaderboard(response.data.html);
+
+                // Said here rather than when it happened: a toast in the middle
+                // of a firefight is worse than one over the board that is
+                // missing the level.
+                if (self.statsFailed) {
+                    Craft.cp.displayError(Craft.t('daemon', 'Some levels could not be recorded. See the browser console.'));
+                }
+            }).catch(function (error) {
+                console.warn('[daemon] could not open the leaderboard', error);
+                Craft.cp.displayError(Craft.t('daemon', 'Could not load the leaderboard.'));
+            });
+        },
+
+        /**
+         * Puts the rendered board in a slideout and holds the game while it is up.
+         *
+         * suspendGame() runs first on purpose: it pops this screen's UI layer,
+         * and the slideout pushes its own in the constructor below. The other way
+         * round would pop the slideout's.
+         */
+        showLeaderboard: function (html) {
+            var self = this;
+
+            this.suspendGame();
+
+            this.slideout = new Craft.Slideout(html, {
+                containerAttributes: {'class': 'daemon-board-slideout'},
+            });
+
+            this.slideout.on('close', function () {
+                self.slideout.destroy();
+                self.slideout = null;
+                self.resumeGame();
+            });
+
+            this.addListener(this.slideout.$container.find('[data-daemon-close]'), 'click', function () {
+                self.slideout.close();
+            });
+        },
+
+        /**
+         * Holds the game still while the board is open. Three things, each needed.
+         *
+         * The main loop is paused, or the monsters carry on while you read.
+         *
+         * This screen's own capture-phase listener comes off, because it calls
+         * preventDefault on Space, Tab and Enter, which are how a slideout is
+         * used.
+         *
+         * And keys are stopped from reaching the engine, which is the one place
+         * in this file that calls stopPropagation. It is safe here and nowhere
+         * else because of where everything listens: SDL registers on window with
+         * useCapture 0 (SDL_emscriptenevents.c), so it is last in the bubble
+         * chain, while Garnish's shortcut manager is on body and the slideout's
+         * focus trap is on its own container. A listener on document sits between
+         * them and cuts the engine off without taking a key from anything else.
+         * Without it every key typed into the slideout would queue up inside SDL
+         * and be played into the game on resume.
+         */
+        suspendGame: function () {
+            if (this.suspended) {
+                return;
+            }
+
+            this.suspended = true;
+
+            this.keyBlocker = function (ev) {
+                ev.stopPropagation();
+            };
+
+            document.addEventListener('keydown', this.keyBlocker);
+            document.addEventListener('keyup', this.keyBlocker);
+            document.addEventListener('keypress', this.keyBlocker);
+
+            this.unbindKeys();
+
+            if (this.layerAdded) {
+                Garnish.uiLayerManager.removeLayer();
+                this.layerAdded = false;
+            }
+
+            if (this.running && this.module && typeof this.module.pauseMainLoop === 'function') {
+                this.module.pauseMainLoop();
+            }
+        },
+
+        /** Hands the game back its keyboard and its main loop. */
+        resumeGame: function () {
+            if (!this.suspended) {
+                return;
+            }
+
+            this.suspended = false;
+
+            document.removeEventListener('keydown', this.keyBlocker);
+            document.removeEventListener('keyup', this.keyBlocker);
+            document.removeEventListener('keypress', this.keyBlocker);
+            this.keyBlocker = null;
+
+            // Nothing to give back if the board was opened before pressing Play.
+            if (!this.running) {
+                return;
+            }
+
+            if (this.module && typeof this.module.resumeMainLoop === 'function') {
+                this.module.resumeMainLoop();
+            }
+
+            if (Garnish.uiLayerManager && typeof Garnish.uiLayerManager.addLayer === 'function') {
+                Garnish.uiLayerManager.addLayer(this.$container);
+                this.layerAdded = true;
+            }
+
+            this.bindKeys();
+            this.$canvas.trigger('focus');
+        },
+
         setStatus: function (message) {
             this.$status.text(message);
         },
@@ -878,6 +1245,7 @@
         fail: function (error) {
             console.error('[daemon]', error);
             this.running = false;
+            this.stopStatPoll();
             this.releaseInput();
             this.$overlay
                 .removeClass('daemon-overlay--busy daemon-overlay--hidden')
@@ -886,6 +1254,8 @@
         },
 
         destroy: function () {
+            this.stopStatPoll();
+            this.resumeGame();
             this.releaseInput();
             this.base();
         },
@@ -899,7 +1269,10 @@
             wadMenu: null,
             saveActions: {},
             saveMenu: null,
+            statActions: {},
+            leaderboardButton: null,
             autosave: true,
+            leaderboard: false,
             pointerLock: true,
         },
     });

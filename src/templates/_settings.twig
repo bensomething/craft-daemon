@@ -74,6 +74,15 @@
     errors: settings.getErrors('pointerLock'),
 }) }}
 
+{{ forms.lightswitchField({
+    label: 'Leaderboard'|t('daemon'),
+    instructions: 'Keep a record of every level completed, and add a **Leaderboard** button to the Daemon screen showing the fastest time and the most kills, items and secrets for each level, across everyone who plays. Off stops the engine being asked for stats at all. Two things it cannot know: the skill a time was set on, because the engine does not write it down, and whether anyone typed IDCLEV.'|t('daemon'),
+    id: 'leaderboard',
+    name: 'leaderboard',
+    on: settings.leaderboard,
+    errors: settings.getErrors('leaderboard'),
+}) }}
+
 {% css %}
     /* Not :first-child. Craft's plugin settings template emits three hidden
        inputs before this template's output, so the heading is never the first
