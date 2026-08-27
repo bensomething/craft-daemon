@@ -14,7 +14,7 @@ A control panel section that runs a WebAssembly build of PrBoom+ on a canvas, be
 ## Installation
 
 ```sh
-composer require bensomething/craft-daemon
+composer require bensomething/craft-daemon:^1.0.0-beta
 php craft plugin/install daemon
 ```
 
